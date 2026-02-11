@@ -13,7 +13,6 @@
     <Name>auto_versus_conventional</Name>
     <RootNamespace>auto_versus_conventional</RootNamespace>
     <InterpreterId>CondaEnv|CondaEnv|North_Machinelearning</InterpreterId>
-    <TestFramework>Pytest</TestFramework>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -24,8 +23,6 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="scripts\convert_football_to_1based.py" />
-    <Compile Include="Test_upon_network X.py" />
     <Compile Include="wcd_adaptive_time.py" />
     <Compile Include="wcd_fixed_time.py" />
     <Compile Include="wcd_lesmis_gated_full.py" />
@@ -35,11 +32,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="celegans_edges.txt" />
-    <Content Include="football.txt" />
     <Content Include="lesmis.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="scripts\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
