@@ -1,0 +1,14 @@
+dataset lesmis
+method original_wcd_lesmis_gated
+n 77
+seed 0
+alpha 0.5
+beta 0.5
+T 3
+h 64
+epochs_per_layer 400
+dims_trace 77->64->64->64
+best_k 7
+modularity 0.230960
+time_seconds 18.126779
+gate_common_min 2

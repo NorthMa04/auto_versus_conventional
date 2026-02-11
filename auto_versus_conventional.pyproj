@@ -25,6 +25,7 @@
   <ItemGroup>
     <Compile Include="wcd_adaptive_time.py" />
     <Compile Include="wcd_fixed_time.py" />
+    <Compile Include="wcd_lesmis_gated_full.py" />
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="CondaEnv|CondaEnv|North_Machinelearning" />

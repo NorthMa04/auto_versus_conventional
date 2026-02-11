@@ -1,7 +1,6 @@
 ﻿import numpy as np
 import time
 from pathlib import Path
-import argparse
 
 import torch
 import torch.nn as nn
@@ -55,9 +54,17 @@ def scale_signed(M, eps=1e-12):
 
 
 # =========================
-# Algorithm 1: X, Z, Q
+# Algorithm 1: X (gated), Z, Q
 # =========================
-def compute_X(W, A, alpha=0.5, beta=0.5):
+def compute_X_gated(W, A, alpha=0.5, beta=0.5, gate_common_min=2):
+    """
+    Lesmis special optimization: gate the 2-hop/common-neighbor term.
+
+    If |N(i) ∩ N(j)| >= gate_common_min:
+        X_ij = alpha * W_ij + beta * sum_{m in common}(W_im + W_mj)
+    else:
+        X_ij = alpha * W_ij
+    """
     n = W.shape[0]
     X = np.zeros((n, n), dtype=float)
     neighbors = [set(np.where(A[i] > 0)[0]) for i in range(n)]
@@ -65,8 +72,11 @@ def compute_X(W, A, alpha=0.5, beta=0.5):
     for i in range(n):
         for j in range(i + 1, n):
             common = neighbors[i] & neighbors[j]
-            W1 = sum(W[i, m] + W[m, j] for m in common)
-            x = alpha * W[i, j] + beta * W1
+            if len(common) >= gate_common_min:
+                W1 = sum(W[i, m] + W[m, j] for m in common)
+                x = alpha * W[i, j] + beta * W1
+            else:
+                x = alpha * W[i, j]
             X[i, j] = X[j, i] = x
 
     return X
@@ -145,7 +155,7 @@ def kl_div(rho, rho_hat):
 def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3, rho=0.05):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    d_in, n = X.shape
+    d_in, _ = X.shape
     Xc = torch.tensor(X.T, dtype=torch.float32, device=device)
     Qc = torch.tensor(Q.T, dtype=torch.float32, device=device)
     Zc = torch.tensor(Z.T, dtype=torch.float32, device=device)
@@ -157,9 +167,7 @@ def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3, rho=0.05):
     ae_z = SparseAE_Sigmoid(d_in, d_h).to(device)
 
     opt = torch.optim.Adam(
-        list(ae_x.parameters()) +
-        list(ae_q.parameters()) +
-        list(ae_z.parameters()),
+        list(ae_x.parameters()) + list(ae_q.parameters()) + list(ae_z.parameters()),
         lr=lr
     )
     mse = nn.MSELoss()
@@ -195,12 +203,22 @@ def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3, rho=0.05):
 # Main
 # =========================
 def main():
+    # ---- fixed config (VS run friendly) ----
     set_seed(0)
 
     input_path = Path("lesmis.txt")
     dataset_name = input_path.stem
     out_dir = Path(f"fixed_paper_{dataset_name}")
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # original-wcd defaults
+    alpha, beta = 0.5, 0.5
+    T = 3
+    h = 64
+    epochs = 400
+
+    # Lesmis special: gating threshold
+    gate_common_min = 2  # try 2, then 3 if still smooth
 
     t0 = time.perf_counter()
 
@@ -210,26 +228,26 @@ def main():
 
     A = (W > 0).astype(int)
 
-    X = compute_X(W, A, 0.5, 0.5)
+    # ---- Algorithm 1 (gated X) ----
+    X = compute_X_gated(W, A, alpha=alpha, beta=beta, gate_common_min=gate_common_min)
     Z = compute_Z(A)
     Qm = compute_modularity_matrix(W)
 
+    # normalization consistent with original-wcd
     X = minmax_01(X)
     Z = minmax_01(Z)
     Qm = scale_signed(Qm)
 
+    # ---- Algorithm 2 ----
     X_t, Q_t, Z_t = X, Qm, Z
     dims_trace = [W.shape[0]]
-
-    T = 3
-    h = 64
-
     for _ in range(T):
-        X_t, Q_t, Z_t = train_one_layer(X_t, Q_t, Z_t, h)
+        X_t, Q_t, Z_t = train_one_layer(X_t, Q_t, Z_t, d_h=h, epochs=epochs)
         dims_trace.append(h)
 
-    H = X_t.T
+    H = X_t.T  # [n, h]
 
+    # ---- KMeans scan ----
     best_Q, best_k, best_labels = -1, None, None
     for k in range(2, 15):
         labels = KMeans(n_clusters=k, n_init=20, random_state=0).fit_predict(H)
@@ -239,28 +257,36 @@ def main():
 
     t1 = time.perf_counter()
 
+    # ---- Save outputs (same spec) ----
     np.savetxt(out_dir / "labels.txt", best_labels, fmt="%d")
 
-    with open(out_dir / "metrics.txt", "w") as f:
+    with open(out_dir / "metrics.txt", "w", encoding="utf-8") as f:
         f.write(f"dataset {dataset_name}\n")
-        f.write("method original_wcd\n")
+        f.write("method original_wcd_lesmis_gated\n")
         f.write(f"n {W.shape[0]}\n")
-        f.write("alpha 0.5\n")
-        f.write("beta 0.5\n")
+        f.write("seed 0\n")
+        f.write(f"alpha {alpha}\n")
+        f.write(f"beta {beta}\n")
         f.write(f"T {T}\n")
         f.write(f"h {h}\n")
+        f.write(f"epochs_per_layer {epochs}\n")
         f.write(f"dims_trace {'->'.join(map(str, dims_trace))}\n")
         f.write(f"best_k {best_k}\n")
         f.write(f"modularity {best_Q:.6f}\n")
         f.write(f"time_seconds {t1 - t0:.6f}\n")
+        f.write(f"gate_common_min {gate_common_min}\n")
 
-    H2 = PCA(n_components=2).fit_transform(H)
+    # ---- Visualization ----
+    H2 = PCA(n_components=2, random_state=0).fit_transform(H)
+    plt.figure(figsize=(7, 6))
     plt.scatter(H2[:, 0], H2[:, 1], c=best_labels, cmap="tab10", s=60)
-    plt.title(f"Original WCD | Q={best_Q:.3f} | k={best_k}")
+    plt.title(f"Gated WCD (Lesmis) | Q={best_Q:.3f} | k={best_k} | gate>={gate_common_min}")
+    plt.grid(True, linestyle="--", alpha=0.3)
+    plt.tight_layout()
     plt.savefig(out_dir / "community.png", dpi=300)
     plt.close()
 
-    print(f"Original WCD done: Q={best_Q:.4f}, k={best_k}")
+    print(f"✅ gated WCD done: Q={best_Q:.4f}, k={best_k}, time={t1 - t0:.2f}s")
 
 
 if __name__ == "__main__":
