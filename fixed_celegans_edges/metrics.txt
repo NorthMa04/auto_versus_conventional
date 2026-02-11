@@ -1,0 +1,5 @@
+dataset celegans_edges
+method fixed
+n 297
+modularity 0.189696
+time_seconds 33.013838

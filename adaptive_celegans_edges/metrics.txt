@@ -1,0 +1,5 @@
+dataset celegans_edges
+adaptive True
+n 297
+modularity 0.098782
+time_seconds 35.681188

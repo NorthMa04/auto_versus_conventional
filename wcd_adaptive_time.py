@@ -111,7 +111,7 @@ def modularity(W, labels):
 # =========================
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", "-i",default="lesmis.txt", help="Input adjacency matrix")
+    parser.add_argument("--input", "-i",default="celegans_edges.txt", help="Input adjacency matrix")
     args = parser.parse_args()
 
     dataset_name = Path(args.input).stem
@@ -161,7 +161,7 @@ def main():
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
     mse = nn.MSELoss()
 
-    for _ in range(400):
+    for _ in range(1000):
         for xb, qb, zb in loader:
             xh, qh, zh, h = model(xb, qb, zb)
             loss = mse(xh, xb) + mse(qh, qb) + mse(zh, zb) + kl_div(rho, h.mean(dim=0)).sum()

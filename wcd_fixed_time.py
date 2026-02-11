@@ -78,7 +78,9 @@ def kl_div(rho, rho_hat):
     eps = 1e-8
     rho_hat = torch.clamp(rho_hat, eps, 1 - eps)
     return rho * torch.log(rho / rho_hat) + (1 - rho) * torch.log((1 - rho) / (1 - rho_hat))
-
+def scale_signed(M,eps=1e-12):
+    s=np.max(np.abs(M))
+    return M/(s+eps)
 
 # =========================
 # 模块度
@@ -134,7 +136,8 @@ def main():
         mn, mx = M.min(), M.max()
         return np.zeros_like(M) if mx - mn < 1e-12 else (M - mn) / (mx - mn)
 
-    X, Q, Z = minmax(X), minmax(Q), minmax(Z)
+    X,Z = minmax(X), minmax(Z)
+    Q=scale_signed(Q)
 
     # ---------- SAE ----------
     n = W.shape[0]
@@ -146,12 +149,12 @@ def main():
 
     loader = DataLoader(TensorDataset(Xc, Qc, Zc), batch_size=32, shuffle=True)
 
-    model = SharedSparseAE(n, h_branch=32, h_shared=16).to(device)
+    model = SharedSparseAE(n, h_branch=128, h_shared=64).to(device)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
     mse = nn.MSELoss()
     rho = 0.05
 
-    for _ in range(400):
+    for _ in range(1000):
         for xb, qb, zb in loader:
             xh, qh, zh, h = model(xb, qb, zb)
             loss = mse(xh, xb) + mse(qh, qb) + mse(zh, zb) + kl_div(rho, h.mean(dim=0)).sum()
@@ -165,7 +168,7 @@ def main():
 
     # ---------- 聚类 ----------
     best_Q, best_k, best_labels = -1, None, None
-    for k in range(2, int(np.sqrt(n)) + 1):
+    for k in range(2, int(np.sqrt(n)) + 20):
         labels = KMeans(k, n_init=20).fit_predict(H)
         Qv = modularity(W, labels)
         if Qv > best_Q:

@@ -30,6 +30,7 @@
     <InterpreterReference Include="CondaEnv|CondaEnv|North_Machinelearning" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="celegans_edges.txt" />
     <Content Include="lesmis.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
