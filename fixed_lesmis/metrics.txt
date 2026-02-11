@@ -1,0 +1,5 @@
+dataset lesmis
+method fixed
+n 77
+modularity 0.222365
+time_seconds 9.504510

@@ -1,0 +1,5 @@
+dataset lesmis
+adaptive True
+n 77
+modularity 0.222365
+time_seconds 8.028282
