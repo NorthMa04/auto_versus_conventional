@@ -1,0 +1,11 @@
+dataset football
+method original_wcd
+n 115
+alpha 0.5
+beta 0.5
+T 3
+h 64
+dims_trace 115->64->64->64
+best_k 9
+modularity 0.586737
+time_seconds 22.415788

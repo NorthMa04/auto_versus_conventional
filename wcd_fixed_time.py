@@ -142,7 +142,9 @@ def kl_div(rho, rho_hat):
 # =========================
 # Algorithm 2: one layer
 # =========================
-def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3, rho=0.05):
+def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3, rho=0.05,
+                    lam_sparse=1e-3, lam_wd=0.0):
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     d_in, n = X.shape
@@ -157,11 +159,11 @@ def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3, rho=0.05):
     ae_z = SparseAE_Sigmoid(d_in, d_h).to(device)
 
     opt = torch.optim.Adam(
-        list(ae_x.parameters()) +
-        list(ae_q.parameters()) +
-        list(ae_z.parameters()),
-        lr=lr
-    )
+    list(ae_x.parameters()) + list(ae_q.parameters()) + list(ae_z.parameters()),
+    lr=lr,
+    weight_decay=lam_wd
+)
+
     mse = nn.MSELoss()
 
     for _ in range(epochs):
@@ -169,16 +171,8 @@ def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3, rho=0.05):
             xh, hx = ae_x(xb)
             qh, hq = ae_q(qb)
             zh, hz = ae_z(zb)
-
-            loss = (
-                mse(xh, xb) +
-                mse(qh, qb) +
-                mse(zh, zb) +
-                kl_div(rho, hx.mean(0)).sum() +
-                kl_div(rho, hq.mean(0)).sum() +
-                kl_div(rho, hz.mean(0)).sum()
-            )
-
+            kl_term = ( kl_div(rho, hx.mean(0)).sum() + kl_div(rho, hq.mean(0)).sum() + kl_div(rho, hz.mean(0)).sum() )
+            loss = mse(xh, xb) + mse(qh, qb) + mse(zh, zb) + lam_sparse * kl_term
             opt.zero_grad()
             loss.backward()
             opt.step()
@@ -228,7 +222,16 @@ def main():
         X_t, Q_t, Z_t = train_one_layer(X_t, Q_t, Z_t, h)
         dims_trace.append(h)
 
-    H = X_t.T
+    def row_l2_normalize(M, eps=1e-12):
+        nrm = np.linalg.norm(M, axis=1, keepdims=True)
+        return M / (nrm + eps)
+
+    HX = row_l2_normalize(X_t.T)  # [n, h]
+    HQ = row_l2_normalize(Q_t.T)  # [n, h]
+    HZ = row_l2_normalize(Z_t.T)  # [n, h]
+
+    H = np.hstack([HX, HQ, HZ])   # [n, 3h]
+
 
     best_Q, best_k, best_labels = -1, None, None
     for k in range(2, 15):
