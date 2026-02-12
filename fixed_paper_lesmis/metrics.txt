@@ -6,6 +6,6 @@ beta 0.5
 T 3
 h 64
 dims_trace 77->64->64->64
-best_k 4
-modularity 0.458432
-time_seconds 17.972850
+best_k 3
+modularity 0.428118
+time_seconds 16.715818

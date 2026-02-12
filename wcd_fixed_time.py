@@ -1,7 +1,6 @@
 ﻿import numpy as np
 import time
 from pathlib import Path
-import argparse
 
 import torch
 import torch.nn as nn
@@ -25,7 +24,7 @@ def set_seed(seed=0):
 
 
 # =========================
-# I/O
+# I/O (保持不变)
 # =========================
 def load_matrix(path: Path):
     with open(path, "r", encoding="utf-8", errors="replace") as f:
@@ -40,7 +39,7 @@ def load_matrix(path: Path):
 
 
 # =========================
-# Normalization
+# Normalization（保持原规范）
 # =========================
 def minmax_01(M, eps=1e-12):
     mn, mx = M.min(), M.max()
@@ -60,14 +59,16 @@ def scale_signed(M, eps=1e-12):
 def compute_X(W, A, alpha=0.5, beta=0.5):
     n = W.shape[0]
     X = np.zeros((n, n), dtype=float)
+
+    B = A @ A
     neighbors = [set(np.where(A[i] > 0)[0]) for i in range(n)]
 
     for i in range(n):
         for j in range(i + 1, n):
-            common = neighbors[i] & neighbors[j]
-            W1 = sum(W[i, m] + W[m, j] for m in common)
-            x = alpha * W[i, j] + beta * W1
-            X[i, j] = X[j, i] = x
+            if B[i, j] != 0:
+                common = neighbors[i] & neighbors[j]
+                W1 = sum(W[i, m] + W[m, j] for m in common)
+                X[i, j] = X[j, i] = alpha * W[i, j] + beta * W1
 
     return X
 
@@ -82,7 +83,7 @@ def compute_Z(A):
 def compute_modularity_matrix(W):
     k = W.sum(axis=1)
     twoW = W.sum()
-    Q = W - np.outer(k, k) / twoW
+    Q = W - np.outer(k, k) / (twoW + 1e-12)
     np.fill_diagonal(Q, 0)
     return Q
 
@@ -99,14 +100,14 @@ def modularity_score(W, labels):
     for i in range(n):
         for j in range(n):
             if labels[i] == labels[j]:
-                Qv += W[i, j] - deg[i] * deg[j] / (2.0 * m)
-    return Qv / (2.0 * m)
+                Qv += W[i, j] - deg[i] * deg[j] / (2.0 * m + 1e-12)
+    return Qv / (2.0 * m + 1e-12)
 
 
 # =========================
-# Sparse Autoencoders
+# Sparse Autoencoder (sigmoid)
 # =========================
-class SparseAE_Sigmoid(nn.Module):
+class SparseAE(nn.Module):
     def __init__(self, d_in, d_h):
         super().__init__()
         self.enc = nn.Linear(d_in, d_h)
@@ -119,20 +120,6 @@ class SparseAE_Sigmoid(nn.Module):
         return x_hat, h
 
 
-class SparseAE_Tanh(nn.Module):
-    def __init__(self, d_in, d_h):
-        super().__init__()
-        self.enc = nn.Linear(d_in, d_h)
-        self.dec = nn.Linear(d_h, d_in)
-        self.act_h = nn.Sigmoid()
-        self.act_out = nn.Tanh()
-
-    def forward(self, x):
-        h = self.act_h(self.enc(x))
-        x_hat = self.act_out(self.dec(h))
-        return x_hat, h
-
-
 def kl_div(rho, rho_hat):
     eps = 1e-8
     rho_hat = torch.clamp(rho_hat, eps, 1 - eps)
@@ -142,8 +129,8 @@ def kl_div(rho, rho_hat):
 # =========================
 # Algorithm 2: one layer
 # =========================
-def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3, rho=0.05,
-                    lam_sparse=1e-3, lam_wd=0.0):
+def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3,
+                    rho=0.05, lam_sparse=1e-4):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -152,17 +139,19 @@ def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3, rho=0.05,
     Qc = torch.tensor(Q.T, dtype=torch.float32, device=device)
     Zc = torch.tensor(Z.T, dtype=torch.float32, device=device)
 
-    loader = DataLoader(TensorDataset(Xc, Qc, Zc), batch_size=batch_size, shuffle=True)
+    loader = DataLoader(TensorDataset(Xc, Qc, Zc),
+                        batch_size=batch_size, shuffle=True)
 
-    ae_x = SparseAE_Sigmoid(d_in, d_h).to(device)
-    ae_q = SparseAE_Tanh(d_in, d_h).to(device)
-    ae_z = SparseAE_Sigmoid(d_in, d_h).to(device)
+    ae_x = SparseAE(d_in, d_h).to(device)
+    ae_q = SparseAE(d_in, d_h).to(device)
+    ae_z = SparseAE(d_in, d_h).to(device)
 
     opt = torch.optim.Adam(
-    list(ae_x.parameters()) + list(ae_q.parameters()) + list(ae_z.parameters()),
-    lr=lr,
-    weight_decay=lam_wd
-)
+        list(ae_x.parameters()) +
+        list(ae_q.parameters()) +
+        list(ae_z.parameters()),
+        lr=lr
+    )
 
     mse = nn.MSELoss()
 
@@ -171,7 +160,13 @@ def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3, rho=0.05,
             xh, hx = ae_x(xb)
             qh, hq = ae_q(qb)
             zh, hz = ae_z(zb)
-            kl_term = ( kl_div(rho, hx.mean(0)).sum() + kl_div(rho, hq.mean(0)).sum() + kl_div(rho, hz.mean(0)).sum() )
+
+            kl_term = (
+                kl_div(rho, hx.mean(0)).sum() +
+                kl_div(rho, hq.mean(0)).sum() +
+                kl_div(rho, hz.mean(0)).sum()
+            )
+
             loss = mse(xh, xb) + mse(qh, qb) + mse(zh, zb) + lam_sparse * kl_term
             opt.zero_grad()
             loss.backward()
@@ -191,7 +186,7 @@ def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3, rho=0.05,
 def main():
     set_seed(0)
 
-    input_path = Path("lesmis.txt")
+    input_path = Path("football.txt")
     dataset_name = input_path.stem
     out_dir = Path(f"fixed_paper_{dataset_name}")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -210,28 +205,19 @@ def main():
 
     X = minmax_01(X)
     Z = minmax_01(Z)
-    Qm = scale_signed(Qm)
+    Qm = minmax_01(Qm)
 
     X_t, Q_t, Z_t = X, Qm, Z
     dims_trace = [W.shape[0]]
 
-    T = 3
+    T = 30
     h = 64
 
     for _ in range(T):
         X_t, Q_t, Z_t = train_one_layer(X_t, Q_t, Z_t, h)
         dims_trace.append(h)
 
-    def row_l2_normalize(M, eps=1e-12):
-        nrm = np.linalg.norm(M, axis=1, keepdims=True)
-        return M / (nrm + eps)
-
-    HX = row_l2_normalize(X_t.T)  # [n, h]
-    HQ = row_l2_normalize(Q_t.T)  # [n, h]
-    HZ = row_l2_normalize(Z_t.T)  # [n, h]
-
-    H = np.hstack([HX, HQ, HZ])   # [n, 3h]
-
+    H = X_t.T  # 只用 X^(T)
 
     best_Q, best_k, best_labels = -1, None, None
     for k in range(2, 15):
