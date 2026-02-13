@@ -3,7 +3,7 @@ import networkx as nx
 from scipy.io import mmread
 import community as community_louvain
 
-W = mmread("football.txt").toarray().astype(float)
+W = mmread("celegans_edges.txt").toarray().astype(float)
 W = 0.5 * (W + W.T)
 np.fill_diagonal(W, 0)
 

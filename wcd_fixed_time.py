@@ -186,7 +186,7 @@ def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-3,
 def main():
     set_seed(0)
 
-    input_path = Path("football.txt")
+    input_path = Path("lesmis.txt")
     dataset_name = input_path.stem
     out_dir = Path(f"fixed_paper_{dataset_name}")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -210,7 +210,7 @@ def main():
     X_t, Q_t, Z_t = X, Qm, Z
     dims_trace = [W.shape[0]]
 
-    T = 30
+    T = 3
     h = 64
 
     for _ in range(T):
