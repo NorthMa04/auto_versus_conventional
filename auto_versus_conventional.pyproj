@@ -36,6 +36,7 @@
   <ItemGroup>
     <Content Include="celegans_edges.txt" />
     <Content Include="football.txt" />
+    <Content Include="hep-th.txt" />
     <Content Include="lesmis.txt" />
   </ItemGroup>
   <ItemGroup>
