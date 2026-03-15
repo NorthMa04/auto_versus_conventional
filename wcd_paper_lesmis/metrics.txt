@@ -1,0 +1,10 @@
+dataset lesmis
+method wcd_paper
+n 77
+alpha 0.5
+beta 0.5
+T 8
+h 32
+best_k 5
+modularity 0.504211
+time_seconds 10.600645
