@@ -12,7 +12,7 @@
     <OutputPath>.</OutputPath>
     <Name>auto_versus_conventional</Name>
     <RootNamespace>auto_versus_conventional</RootNamespace>
-    <InterpreterId>CondaEnv|CondaEnv|North_Machinelearning</InterpreterId>
+    <InterpreterId>CondaEnv|CondaEnv|North_MachineDeep_Learning</InterpreterId>
     <TestFramework>Pytest</TestFramework>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -31,7 +31,7 @@
     <Compile Include="wcd_lesmis_gated_full.py" />
   </ItemGroup>
   <ItemGroup>
-    <InterpreterReference Include="CondaEnv|CondaEnv|North_Machinelearning" />
+    <InterpreterReference Include="CondaEnv|CondaEnv|North_MachineDeep_Learning" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="celegans_edges.txt" />
