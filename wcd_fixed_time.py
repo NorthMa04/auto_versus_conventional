@@ -194,7 +194,7 @@ def main():
     set_seed(0)
 
     # 输入数据路径（请根据实际情况修改）
-    input_path = Path("football.txt")          # 示例数据集
+    input_path = Path("lesmis.txt")          # 示例数据集
     dataset_name = input_path.stem
     out_dir = Path(f"wcd_paper_{dataset_name}")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -209,7 +209,7 @@ def main():
     A = (W > 0).astype(int)                   # 未加权邻接矩阵
 
     # ---------- 算法 1：计算三个特征矩阵 ----------
-    X = compute_X(W, A, alpha=0.5, beta=0.5)  # 相似性矩阵（公式 1）
+    X = compute_X(W, A, alpha=0.9, beta=0.1)  # 相似性矩阵（公式 1）
     Z = compute_Z(A)                          # 二阶邻接矩阵
     Qm = compute_modularity_matrix(W)         # 模块度矩阵（公式 3）
 
