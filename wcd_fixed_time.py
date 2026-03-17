@@ -12,6 +12,115 @@ import matplotlib.pyplot as plt
 
 
 # =========================
+# 全部配置统一放在这里
+# =========================
+# =========================
+# 全部配置统一放在这里
+# =========================
+CONFIG = {
+    # ----- reproducibility -----
+    "seed": 0,
+    # 随机种子，用于保证实验可复现。
+    # 会同时影响：
+    # 1) numpy 的随机数
+    # 2) PyTorch 的随机初始化与训练过程
+    # 3) KMeans 的随机初始化
+    # 一般做论文复现或参数对比时，这个值建议固定。
+
+    # ----- input / output -----
+    "input_path": "lesmis.txt",
+    # 输入网络数据文件路径。
+    # 当前代码支持两类格式：
+    # 1) Matrix Market 格式（文件首行以 %%MatrixMarket 开头）
+    # 2) 普通文本矩阵格式（可被 np.loadtxt 直接读取）
+    # 默认假设读入的是一个加权邻接矩阵。
+
+    # ----- feature construction -----
+    "alpha": 0.9,
+    # 相似性矩阵 X 中的一阶邻接权重系数。
+    # 对应 compute_X 中：
+    #     alpha * W[i, j]
+    # 用来衡量节点 i 与 j 的直接连接权重贡献。
+
+    "beta": 0.1,
+    # 相似性矩阵 X 中的二阶共同邻居权重系数。
+    # 对应 compute_X 中：
+    #     beta * sum(W[i, m] + W[m, j])
+    # 其中 m 是 i 和 j 的共同邻居。
+    # beta 越大，表示越重视“通过共同邻居形成的相似性”。
+
+    # ----- one-layer sparse AE training -----
+    "epochs": 400,
+    # 单层稀疏自编码器的训练轮数。
+    # 每训练一层编码器，都会完整遍历训练集 epochs 次。
+    # 数值越大，单层训练越充分，但总耗时也会增加。
+
+    "batch_size": 32,
+    # 小批量训练时每个 batch 的样本数。
+    # 当前训练集由 X、Q、Z 三组样本拼接而成，总大小约为 3n。
+    # batch_size 越小，梯度更新更频繁；越大，单步更稳定但占用显存更多。
+
+    "lr": 1e-2,
+    # Adam 优化器的学习率。
+    # 控制参数更新步长。
+    # 如果训练不稳定、震荡明显，可适当减小；
+    # 如果收敛太慢，可谨慎增大。
+
+    "rho": 0.05,
+    # 稀疏约束中的目标平均激活值。
+    # 对应 KL 散度项中的目标稀疏水平。
+    # rho 越小，表示希望隐藏层神经元平均激活越稀疏。
+
+    "lam_sparse": 1e-4,
+    # 稀疏正则项的权重系数。
+    # 总损失为：
+    #     reconstruction_loss + lam_sparse * KL_sparse_penalty
+    # 该值越大，模型越强调稀疏性；越小，越偏重重构精度。
+
+    # ----- stacked deep sparse AE -----
+    "T": 8,
+    # 深度稀疏自编码器中的“最终层编号”。
+    # 当前主程序按论文写法使用：
+    #     for layer in range(T - 1)
+    # 即实际训练的编码器层数为 T - 1。
+    # 例如 T=8 时，会训练 7 层。
+
+    "h": 32,
+    # 每一层稀疏自编码器的隐藏层维度。
+    # 当前代码中所有层都使用相同的隐藏维度 h，
+    # 即每一层都把输入映射到 h 维特征空间。
+    # h 越小，压缩越强；h 越大，保留信息越多。
+
+    # ----- kmeans -----
+    "k_min": 2,
+    # KMeans 聚类时搜索的最小社区数。
+    # 当前代码会遍历 k = k_min, ..., k_max。
+
+    "k_max": 14,
+    # KMeans 聚类时搜索的最大社区数。
+    # 每个 k 都会执行一次聚类，并计算对应模块度 Q 值，
+    # 最终选择模块度最高的结果作为输出。
+
+    "k_n_init": 20,
+    # KMeans 的初始化次数。
+    # sklearn 会运行多次不同初始中心的 KMeans，
+    # 然后保留其中最优结果。
+    # 该值越大，结果通常越稳定，但耗时也会增加。
+
+    # ----- visualization -----
+    "figsize": (8, 6),
+    # 最终社区可视化图的画布大小，传给 plt.figure(figsize=...)。
+
+    "dpi": 300,
+    # 输出图片的分辨率。
+    # dpi 越高，保存的图片越清晰，文件体积通常也会更大。
+
+    "scatter_size": 60,
+    # PCA 降维后散点图中，每个节点对应点的大小。
+}
+
+
+# =========================
 # 可重复性设置
 # =========================
 def set_seed(seed=0):
@@ -39,7 +148,7 @@ def load_matrix(path: Path):
 
 
 # =========================
-# 归一化（Min‑Max 缩放到 [0,1]）
+# 归一化（Min-Max 缩放到 [0,1]）
 # =========================
 def minmax_01(M, eps=1e-12):
     mn, mx = M.min(), M.max()
@@ -84,7 +193,6 @@ def compute_Z(A):
     B = A @ A
     Z = 0.5 * A + B
     return Z.astype(float)
-
 
 
 def compute_modularity_matrix(W):
@@ -133,7 +241,6 @@ class SparseAE(nn.Module):
         return x_hat, h
 
 
-
 def kl_div(rho, rho_hat):
     """
     KL 散度用于稀疏约束 (公式 9)。
@@ -141,7 +248,6 @@ def kl_div(rho, rho_hat):
     eps = 1e-8
     rho_hat = torch.clamp(rho_hat, eps, 1 - eps)
     return rho * torch.log(rho / rho_hat) + (1 - rho) * torch.log((1 - rho) / (1 - rho_hat))
-
 
 
 def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-2,
@@ -191,10 +297,10 @@ def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-2,
 # 主程序：完整 WCD 算法
 # =========================
 def main():
-    set_seed(0)
+    set_seed(CONFIG["seed"])
 
     # 输入数据路径（请根据实际情况修改）
-    input_path = Path("lesmis.txt")          # 示例数据集
+    input_path = Path(CONFIG["input_path"])
     dataset_name = input_path.stem
     out_dir = Path(f"wcd_paper_{dataset_name}")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -209,7 +315,11 @@ def main():
     A = (W > 0).astype(int)                   # 未加权邻接矩阵
 
     # ---------- 算法 1：计算三个特征矩阵 ----------
-    X = compute_X(W, A, alpha=0.9, beta=0.1)  # 相似性矩阵（公式 1）
+    X = compute_X(
+        W, A,
+        alpha=CONFIG["alpha"],
+        beta=CONFIG["beta"]
+    )                                         # 相似性矩阵（公式 1）
     Z = compute_Z(A)                          # 二阶邻接矩阵
     Qm = compute_modularity_matrix(W)         # 模块度矩阵（公式 3）
 
@@ -220,8 +330,8 @@ def main():
 
     # ---------- 深度稀疏自编码器堆叠训练（算法 2） ----------
     # 这里保留原始代码风格，只修正论文中的层数循环。
-    T = 8              # 论文中的最终层编号
-    h = 32             # 隐藏层维度（后续可在参数实验中系统比较）
+    T = CONFIG["T"]           # 论文中的最终层编号
+    h = CONFIG["h"]           # 隐藏层维度（后续可在参数实验中系统比较）
 
     # 保存每一层训练好的编码器（用于最终前向传播）
     encoders = []
@@ -232,7 +342,15 @@ def main():
     # 论文算法 2：for j = 1 -> T - 1
     for layer in range(T - 1):
         print(f"Training layer {layer + 1}/{T - 1} ...")
-        HX, HQ, HZ, ae = train_one_layer(X_t, Q_t, Z_t, d_h=h)
+        HX, HQ, HZ, ae = train_one_layer(
+            X_t, Q_t, Z_t,
+            d_h=h,
+            epochs=CONFIG["epochs"],
+            batch_size=CONFIG["batch_size"],
+            lr=CONFIG["lr"],
+            rho=CONFIG["rho"],
+            lam_sparse=CONFIG["lam_sparse"],
+        )
         encoders.append(ae)
         X_t, Q_t, Z_t = HX, HQ, HZ
 
@@ -250,10 +368,14 @@ def main():
 
     # 此时 H 对应论文中的 X^(T)
 
-    # ---------- K‑means 聚类 ----------
+    # ---------- K-means 聚类 ----------
     best_Q, best_k, best_labels = -1, None, None
-    for k in range(2, 15):
-        kmeans = KMeans(n_clusters=k, n_init=20, random_state=0)
+    for k in range(CONFIG["k_min"], CONFIG["k_max"] + 1):
+        kmeans = KMeans(
+            n_clusters=k,
+            n_init=CONFIG["k_n_init"],
+            random_state=CONFIG["seed"]
+        )
         labels = kmeans.fit_predict(H)
         Qv = modularity_score(W, labels)
         if Qv > best_Q:
@@ -268,21 +390,36 @@ def main():
         f.write(f"dataset {dataset_name}\n")
         f.write("method wcd_paper\n")
         f.write(f"n {W.shape[0]}\n")
-        f.write("alpha 0.5\n")
-        f.write("beta 0.5\n")
-        f.write(f"T {T}\n")
-        f.write(f"trained_layers {max(T - 1, 0)}\n")
-        f.write(f"h {h}\n")
+        f.write(f"seed {CONFIG['seed']}\n")
+        f.write(f"alpha {CONFIG['alpha']}\n")
+        f.write(f"beta {CONFIG['beta']}\n")
+        f.write(f"T {CONFIG['T']}\n")
+        f.write(f"trained_layers {max(CONFIG['T'] - 1, 0)}\n")
+        f.write(f"h {CONFIG['h']}\n")
+        f.write(f"epochs {CONFIG['epochs']}\n")
+        f.write(f"batch_size {CONFIG['batch_size']}\n")
+        f.write(f"lr {CONFIG['lr']}\n")
+        f.write(f"rho {CONFIG['rho']}\n")
+        f.write(f"lam_sparse {CONFIG['lam_sparse']}\n")
+        f.write(f"k_min {CONFIG['k_min']}\n")
+        f.write(f"k_max {CONFIG['k_max']}\n")
+        f.write(f"k_n_init {CONFIG['k_n_init']}\n")
         f.write(f"best_k {best_k}\n")
         f.write(f"modularity {best_Q:.6f}\n")
         f.write(f"time_seconds {t1 - t0:.6f}\n")
 
     # ---------- 可视化（PCA 降维到 2D）----------
     H2 = PCA(n_components=2).fit_transform(H)
-    plt.figure(figsize=(8, 6))
-    plt.scatter(H2[:, 0], H2[:, 1], c=best_labels, cmap="tab10", s=60, edgecolor='k')
+    plt.figure(figsize=CONFIG["figsize"])
+    plt.scatter(
+        H2[:, 0], H2[:, 1],
+        c=best_labels,
+        cmap="tab10",
+        s=CONFIG["scatter_size"],
+        edgecolor='k'
+    )
     plt.title(f"WCD (paper) | Q = {best_Q:.3f} | k = {best_k}")
-    plt.savefig(out_dir / "community.png", dpi=300)
+    plt.savefig(out_dir / "community.png", dpi=CONFIG["dpi"])
     plt.close()
 
     print(f"Finished. Q = {best_Q:.4f}, k = {best_k}")
