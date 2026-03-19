@@ -1,4 +1,4 @@
-﻿import numpy as np
+import numpy as np
 import time
 from pathlib import Path
 
@@ -18,37 +18,25 @@ import pandas as pd
 # =========================
 CONFIG = {
     # ----- experiment identity -----
-    "experiment_tag": "h_Test",
-    # 当前实验标签。
-    # 会直接写入输出目录名、文件名和汇总表中，
-    # 用于显式区分这是一轮针对 h 的参数测试。
+    "experiment_tag": "stageDims_Test",
 
     # ----- reproducibility -----
     "seed": 0,
-    # 随机种子。固定后可尽量保证：
-    # 1) 自编码器初始化一致
-    # 2) DataLoader 打乱顺序一致
-    # 3) KMeans 初始化一致
 
     # ----- datasets -----
     "input_paths": [
         "lesmis.txt",
         "football.txt",
-        #"celegans_edges.txt",
-        # "hep-th.txt",   # 当前按你的要求先不跑
+        # "celegans_edges.txt",
+        # "hep-th.txt",
     ],
-    # 待测试的数据集列表。
-    # 当前 main() 会对列表中的每个数据集都完整跑一遍 h 扫描。
 
     # ----- output -----
-    "output_root": "wcd_experiments",
-    # 所有实验结果的根目录。
+    "output_root": "wcd_experiments_version",
 
     # ----- feature construction -----
     "alpha": 0.5,
     "beta": 0.5,
-    # 相似性矩阵 X 的构造参数。
-    # 当前固定为统一配置，避免这轮 h 实验被 alpha/beta 干扰。
 
     # ----- one-layer sparse AE training -----
     "epochs": 600,
@@ -56,16 +44,17 @@ CONFIG = {
     "lr": 1e-3,
     "rho": 0.10,
     "lam_sparse": 1e-3,
-    # 当前固定为较稳健的训练配置，尽量避免训练本身成为瓶颈。
 
     # ----- stacked deep sparse AE -----
     "T": 8,
-    # 最终层编号。
-    # 实际训练层数仍为 T - 1，保持你当前代码逻辑不变。
+    # 实际训练层数仍为 T - 1，因此 stage_dims 的长度必须是 7
 
-    "h_list": [8, 16, 24, 32, 48, 64, 80, 96],
-    # 当前实验的核心扫描参数。
-    # main() 会依次测试这些 h。
+    "stage_dims_list": [
+        [72, 64, 56, 48, 40, 32, 24],
+        [64, 56, 48, 40, 32, 24, 16],
+        [80, 72, 64, 56, 48, 40, 32],
+        # [64, 48, 40, 32, 24, 16, 8],  # 可选：稍激进下降
+    ],
 
     # ----- kmeans -----
     "k_min": 2,
@@ -79,11 +68,7 @@ CONFIG = {
 
     # ----- logging -----
     "save_epoch_history": True,
-    # 是否保存每一层每个 epoch 的训练历史。
-    # 建议开启，这对排查“某个 h 为什么效果差”很有帮助。
-
     "save_excel": True,
-    # 是否额外导出 Excel 汇总表。
 }
 
 
@@ -296,6 +281,10 @@ def train_one_layer(
         h_min = float(h_all.min().item())
         h_max = float(h_all.max().item())
 
+    HX_np = HX.T.cpu().numpy()
+    HQ_np = HQ.T.cpu().numpy()
+    HZ_np = HZ.T.cpu().numpy()
+
     layer_summary = {
         "layer": layer_index,
         "d_in": d_in,
@@ -313,16 +302,17 @@ def train_one_layer(
         "final_min_activation": h_min,
         "final_max_activation": h_max,
         "layer_time_seconds": layer_t1 - layer_t0,
-        "has_nan_in_HX": bool(np.isnan(HX.cpu().numpy()).any()),
-        "has_nan_in_HQ": bool(np.isnan(HQ.cpu().numpy()).any()),
-        "has_nan_in_HZ": bool(np.isnan(HZ.cpu().numpy()).any()),
+        "has_nan_in_HX": bool(np.isnan(HX_np).any()),
+        "has_nan_in_HQ": bool(np.isnan(HQ_np).any()),
+        "has_nan_in_HZ": bool(np.isnan(HZ_np).any()),
     }
 
-    return HX.T.cpu().numpy(), HQ.T.cpu().numpy(), HZ.T.cpu().numpy(), ae.cpu(), layer_summary, epoch_history
+    return HX_np, HQ_np, HZ_np, ae.cpu(), layer_summary, epoch_history
 
 
-def build_run_name(dataset_name, h):
-    return f"{CONFIG['experiment_tag']}_{dataset_name}_h{int(h):03d}"
+def build_run_name(dataset_name, stage_dims):
+    dims_tag = "-".join(str(x) for x in stage_dims)
+    return f"{CONFIG['experiment_tag']}_{dataset_name}_dims_{dims_tag}"
 
 
 def save_metrics_txt(path, metrics_dict):
@@ -331,11 +321,11 @@ def save_metrics_txt(path, metrics_dict):
             f.write(f"{k} {v}\n")
 
 
-def run_single_experiment(input_path: Path, h_value: int):
+def run_single_experiment(input_path: Path, stage_dims):
     set_seed(CONFIG["seed"])
 
     dataset_name = input_path.stem
-    run_name = build_run_name(dataset_name, h_value)
+    run_name = build_run_name(dataset_name, stage_dims)
 
     out_root = Path(CONFIG["output_root"])
     out_dir = out_root / run_name
@@ -367,7 +357,7 @@ def run_single_experiment(input_path: Path, h_value: int):
 
     # ---------- 深度稀疏自编码器堆叠训练 ----------
     T = CONFIG["T"]
-    h = h_value
+    assert len(stage_dims) == T - 1, "len(stage_dims) 必须等于 T - 1"
 
     encoders = []
     X_t, Q_t, Z_t = X, Qm, Z
@@ -377,10 +367,12 @@ def run_single_experiment(input_path: Path, h_value: int):
 
     sae_t0 = time.perf_counter()
     for layer in range(T - 1):
-        print(f"[{run_name}] Training layer {layer + 1}/{T - 1} ...")
+        d_h = stage_dims[layer]
+        print(f"[{run_name}] Training layer {layer + 1}/{T - 1} | d_h={d_h} ...")
+
         HX, HQ, HZ, ae, layer_summary, epoch_history = train_one_layer(
             X_t, Q_t, Z_t,
-            d_h=h,
+            d_h=d_h,
             epochs=CONFIG["epochs"],
             batch_size=CONFIG["batch_size"],
             lr=CONFIG["lr"],
@@ -432,7 +424,8 @@ def run_single_experiment(input_path: Path, h_value: int):
         kmeans_records.append({
             "dataset": dataset_name,
             "run_name": run_name,
-            "h": h,
+            "stage_dims": str(stage_dims),
+            "final_h": stage_dims[-1],
             "k": k,
             "modularity": float(Qv),
             "inertia": inertia,
@@ -452,7 +445,8 @@ def run_single_experiment(input_path: Path, h_value: int):
     df_layers = pd.DataFrame(layer_summaries)
     df_layers.insert(0, "dataset", dataset_name)
     df_layers.insert(1, "run_name", run_name)
-    df_layers.insert(2, "h", h)
+    df_layers.insert(2, "stage_dims", str(stage_dims))
+    df_layers.insert(3, "final_h", stage_dims[-1])
     df_layers.to_csv(out_dir / f"{run_name}_layer_summary.csv", index=False)
 
     # ---------- 保存 epoch 训练历史 ----------
@@ -461,7 +455,8 @@ def run_single_experiment(input_path: Path, h_value: int):
         if not df_epochs.empty:
             df_epochs.insert(0, "dataset", dataset_name)
             df_epochs.insert(1, "run_name", run_name)
-            df_epochs.insert(2, "h", h)
+            df_epochs.insert(2, "stage_dims", str(stage_dims))
+            df_epochs.insert(3, "final_h", stage_dims[-1])
             df_epochs.to_csv(out_dir / f"{run_name}_epoch_history.csv", index=False)
     else:
         df_epochs = pd.DataFrame()
@@ -475,7 +470,7 @@ def run_single_experiment(input_path: Path, h_value: int):
         "experiment_tag": CONFIG["experiment_tag"],
         "run_name": run_name,
         "dataset": dataset_name,
-        "method": "wcd_paper",
+        "method": "wcd_paper_stage_dims",
         "n": n,
         "edges": edges,
         "density": density,
@@ -484,7 +479,8 @@ def run_single_experiment(input_path: Path, h_value: int):
         "beta": CONFIG["beta"],
         "T": CONFIG["T"],
         "trained_layers": max(CONFIG["T"] - 1, 0),
-        "h": h,
+        "stage_dims": str(stage_dims),
+        "final_h": stage_dims[-1],
         "epochs": CONFIG["epochs"],
         "batch_size": CONFIG["batch_size"],
         "lr": CONFIG["lr"],
@@ -526,7 +522,10 @@ def run_single_experiment(input_path: Path, h_value: int):
         s=CONFIG["scatter_size"],
         edgecolor="k"
     )
-    plt.title(f"{CONFIG['experiment_tag']} | {dataset_name} | h={h} | Q={best_Q:.3f} | k={best_k}")
+    plt.title(
+        f"{CONFIG['experiment_tag']} | {dataset_name} | final_h={stage_dims[-1]} "
+        f"| Q={best_Q:.3f} | k={best_k}"
+    )
     plt.savefig(out_dir / f"{run_name}_community.png", dpi=CONFIG["dpi"])
     plt.close()
 
@@ -552,11 +551,12 @@ def run_single_experiment(input_path: Path, h_value: int):
 
 
 # =========================
-# 主程序：多数据集 × 多 h 的批量实验
+# 主程序：多数据集 × 多组 stage_dims 的批量实验
 # =========================
 def main():
     out_root = Path(CONFIG["output_root"])
     out_root.mkdir(parents=True, exist_ok=True)
+
     all_metrics = []
     all_layers = []
     all_kmeans = []
@@ -572,8 +572,8 @@ def main():
         print(f"Dataset: {dataset_name}")
         print("=" * 80)
 
-        for h in CONFIG["h_list"]:
-            result = run_single_experiment(input_path=input_path, h_value=h)
+        for stage_dims in CONFIG["stage_dims_list"]:
+            result = run_single_experiment(input_path=input_path, stage_dims=stage_dims)
 
             all_metrics.append(result["metrics"])
             all_layers.append(result["df_layers"])
@@ -593,11 +593,13 @@ def main():
     summary_prefix = CONFIG["experiment_tag"]
 
     df_all_metrics.to_csv(out_root / f"{summary_prefix}_all_runs_summary.csv", index=False)
+
     # ---------- 每个数据集单独 summary ----------
     if not df_all_metrics.empty:
         summary_cols = [
             "dataset",
-            "h",
+            "stage_dims",
+            "final_h",
             "alpha",
             "beta",
             "T",
@@ -614,16 +616,20 @@ def main():
         for dataset_name, df_dataset in df_all_metrics.groupby("dataset"):
             df_dataset_summary = (
                 df_dataset[summary_cols]
-                .sort_values(by="h")
+                .sort_values(by="final_h")
                 .reset_index(drop=True)
             )
             best_idx = df_dataset_summary["modularity"].idxmax()
             df_dataset_summary["is_best_for_dataset"] = False
             df_dataset_summary.loc[best_idx, "is_best_for_dataset"] = True
+
             df_dataset_summary.to_csv(
                 out_root / f"{summary_prefix}_{dataset_name}_summary.csv",
                 index=False
             )
+    else:
+        summary_cols = []
+
     if not df_all_layers.empty:
         df_all_layers.to_csv(out_root / f"{summary_prefix}_all_layers_summary.csv", index=False)
     if not df_all_kmeans.empty:
@@ -631,11 +637,11 @@ def main():
     if not df_all_epochs.empty:
         df_all_epochs.to_csv(out_root / f"{summary_prefix}_all_epoch_history.csv", index=False)
 
-    # 每个数据集找最优 h
+    # 每个数据集找最优结构
     if not df_all_metrics.empty:
         idx = df_all_metrics.groupby("dataset")["modularity"].idxmax()
         df_best_by_dataset = df_all_metrics.loc[idx].sort_values("dataset")
-        df_best_by_dataset.to_csv(out_root / f"{summary_prefix}_best_h_by_dataset.csv", index=False)
+        df_best_by_dataset.to_csv(out_root / f"{summary_prefix}_best_by_dataset.csv", index=False)
     else:
         df_best_by_dataset = pd.DataFrame()
 
@@ -644,23 +650,29 @@ def main():
         excel_path = out_root / f"{summary_prefix}_global_summary.xlsx"
         with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
             df_all_metrics.to_excel(writer, sheet_name="all_runs_summary", index=False)
+
             if not df_best_by_dataset.empty:
-                df_best_by_dataset.to_excel(writer, sheet_name="best_h_by_dataset", index=False)
+                df_best_by_dataset.to_excel(writer, sheet_name="best_by_dataset", index=False)
             if not df_all_layers.empty:
                 df_all_layers.to_excel(writer, sheet_name="all_layers_summary", index=False)
             if not df_all_kmeans.empty:
                 df_all_kmeans.to_excel(writer, sheet_name="all_kmeans_scan", index=False)
             if not df_all_epochs.empty:
                 df_all_epochs.to_excel(writer, sheet_name="all_epoch_history", index=False)
-            for dataset_name, df_dataset in df_all_metrics.groupby("dataset"):
-                df_dataset_summary = (
-                    df_dataset[summary_cols]
-                    .sort_values(by="h")
-                    .reset_index(drop=True)
-                )
-                sheet_name = f"{dataset_name}_summary"[:31]  # Excel sheet 名最长 31 字符
-                df_dataset_summary.to_excel(writer, sheet_name=sheet_name, index=False)
 
+            if not df_all_metrics.empty:
+                for dataset_name, df_dataset in df_all_metrics.groupby("dataset"):
+                    df_dataset_summary = (
+                        df_dataset[summary_cols]
+                        .sort_values(by="final_h")
+                        .reset_index(drop=True)
+                    )
+                    best_idx = df_dataset_summary["modularity"].idxmax()
+                    df_dataset_summary["is_best_for_dataset"] = False
+                    df_dataset_summary.loc[best_idx, "is_best_for_dataset"] = True
+
+                    sheet_name = f"{dataset_name}_summary"[:31]
+                    df_dataset_summary.to_excel(writer, sheet_name=sheet_name, index=False)
 
     print("=" * 80)
     print(f"All {CONFIG['experiment_tag']} experiments finished.")
