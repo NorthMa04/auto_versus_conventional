@@ -12,7 +12,7 @@
     <OutputPath>.</OutputPath>
     <Name>auto_versus_conventional</Name>
     <RootNamespace>auto_versus_conventional</RootNamespace>
-    <InterpreterId>CondaEnv|CondaEnv|North_MachineDeep_Learning</InterpreterId>
+    <InterpreterId>CondaEnv|CondaEnv|MachineLearning</InterpreterId>
     <TestFramework>Pytest</TestFramework>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -24,14 +24,12 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="parameters_test_overall.py" />
     <Compile Include="scripts\convert_football_to_1based.py" />
+    <Compile Include="stacked_sparse_version.py" />
     <Compile Include="Test_upon_network X.py" />
     <Compile Include="wcd_adaptive_time.py" />
     <Compile Include="wcd_fixed_time.py" />
-    <Compile Include="wcd_lesmis_gated_full.py" />
-  </ItemGroup>
-  <ItemGroup>
-    <InterpreterReference Include="CondaEnv|CondaEnv|North_MachineDeep_Learning" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="celegans_edges.txt" />
@@ -41,6 +39,9 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="scripts\" />
+  </ItemGroup>
+  <ItemGroup>
+    <InterpreterReference Include="CondaEnv|CondaEnv|MachineLearning" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
