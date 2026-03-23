@@ -19,18 +19,18 @@ CONFIG = {
     "seed": 0,
 
     # ----- input / output -----
-    "input_path": "lesmis.txt",
+    "input_path": "football.txt",
 
     # ----- feature construction -----
-    "alpha": 0.9,
-    "beta": 0.1,
+    "alpha": 0.5,
+    "beta": 0.5,
 
     # ----- one-layer sparse AE training -----
-    "epochs": 400,
-    "batch_size": 32,
+    "epochs": 600,
+    "batch_size": 64,
     "lr": 1e-2,
     "rho": 0.05,
-    "lam_sparse": 1e-4,
+    "lam_sparse": 0.0005,
 
     # ----- stacked deep sparse AE -----
     "T": 8,

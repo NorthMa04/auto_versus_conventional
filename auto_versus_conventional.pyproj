@@ -24,6 +24,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="cpu_bench.py" />
     <Compile Include="gpu_bench.py" />
     <Compile Include="parameters_test_3.py" />
     <Compile Include="parameters_test_5.py" />

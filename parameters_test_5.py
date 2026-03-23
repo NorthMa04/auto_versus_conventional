@@ -18,7 +18,7 @@ import pandas as pd
 # =========================
 CONFIG = {
     # ----- experiment identity -----
-    "experiment_tag": "alpha_T_lamsparse_h_rho_lr_grid",
+    "experiment_tag": "full_param_grid",
 
     # ----- reproducibility -----
     "seed": 0,
@@ -62,13 +62,13 @@ CONFIG = {
     "lr_list": [1e-3, 5e-3, 1e-2],
 
     # ----- fixed training params -----
-    "epochs": 500,
-    "batch_size": 32,
+    "epochs_list": [300, 400],
+    "batch_size_list": [32, 128],
 
     # ----- kmeans -----
-    "k_min": 2,
-    "k_max": 14,
-    "k_n_init": 20,
+    "k_min_list": [2],
+    "k_max_list": [14],
+    "k_n_init_list": [20],
 
     # ----- device / stability -----
     "force_cpu": False,
@@ -338,6 +338,11 @@ def run_single_experiment(
     rho,
     lr,
     lam_sparse,
+    batch_size,
+    epochs,
+    k_min,
+    k_max,
+    k_n_init,
     combo_index,
     total_combos,
     device
@@ -375,8 +380,8 @@ def run_single_experiment(
             X_t, Q_t, Z_t,
             d_h=h,
             device=device,
-            epochs=CONFIG["epochs"],
-            batch_size=CONFIG["batch_size"],
+            epochs=epochs,
+            batch_size=batch_size,
             lr=lr,
             rho=rho,
             lam_sparse=lam_sparse,
@@ -484,7 +489,13 @@ def main():
         CONFIG["h_list"],
         CONFIG["rho_list"],
         CONFIG["lr_list"],
+        CONFIG["batch_size_list"],
+        CONFIG["epochs_list"],
+        CONFIG["k_min_list"],
+        CONFIG["k_max_list"],
+        CONFIG["k_n_init_list"],
     ))
+   
     combos_per_dataset = len(search_space)
 
     for input_str in CONFIG["input_paths"]:
