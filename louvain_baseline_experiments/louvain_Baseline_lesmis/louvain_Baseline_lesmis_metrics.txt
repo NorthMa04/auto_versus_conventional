@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_lesmis
+dataset lesmis
+method louvain
+n 77
+edges 254
+density 0.08680792891319207
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 6
+modularity_custom 0.5658216835217148
+modularity_louvain_api 0.5658216835217132
+graph_build_time_seconds 0.0019755999965127558
+louvain_time_seconds 0.025881900000968017
+time_seconds 0.07626960000197869

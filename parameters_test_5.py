@@ -1,0 +1,599 @@
+import gc
+import itertools
+import numpy as np
+import time
+from pathlib import Path
+
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+
+from sklearn.cluster import KMeans
+
+import pandas as pd
+
+
+# =========================
+# 全部配置统一放在这里
+# =========================
+CONFIG = {
+    # ----- experiment identity -----
+    "experiment_tag": "alpha_T_lamsparse_h_rho_lr_grid",
+
+    # ----- reproducibility -----
+    "seed": 0,
+
+    # ----- datasets -----
+    "input_paths": [
+        #"football.txt",
+        "lesmis.txt",
+        # "celegans_edges.txt",
+        # "hep-th.txt",
+    ],
+
+    # ----- output -----
+    "output_root": "wcd_experiments",
+
+    # =========================================================
+    # 六参数联调
+    # 细扫：alpha, T, lam_sparse
+    # 粗扫：h, rho, lr
+    # =========================================================
+
+    # ----- fine search 1: alpha -----
+    "alpha_list": [0.5],
+    # beta 自动取 1 - alpha
+
+    # ----- fine search 2: compression layers -----
+    # 注意：代码里实际训练层数是 T - 1
+    "T_list": [4, 6, 8, 10, 12],
+
+    # ----- fine search 3: sparse penalty -----
+    "lam_sparse_list": list(np.logspace(-4, -2, 6)),
+    # 从 1e-4 到 1e-2，细一点扫
+
+    # ----- coarse search 1: hidden size -----
+    "h_list": [16, 32, 48],
+
+    # ----- coarse search 2: rho -----
+    "rho_list": [0.01, 0.05, 0.10],
+
+    # ----- coarse search 3: learning rate -----
+    "lr_list": [1e-3, 5e-3, 1e-2],
+
+    # ----- fixed training params -----
+    "epochs": 500,
+    "batch_size": 32,
+
+    # ----- kmeans -----
+    "k_min": 2,
+    "k_max": 14,
+    "k_n_init": 20,
+
+    # ----- device / stability -----
+    "force_cpu": False,
+    # True 时强制用 CPU；默认自动选择 cuda / mps / cpu
+
+    "print_every_epoch": False,
+    # 是否打印每层每个 epoch，默认关闭，否则输出会很多
+
+    "save_excel": True,
+}
+
+
+# =========================
+# 可重复性设置
+# =========================
+def set_seed(seed=0):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+
+# =========================
+# 设备选择
+# =========================
+def get_device():
+    if CONFIG["force_cpu"]:
+        return torch.device("cpu")
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
+# =========================
+# 内存清理
+# =========================
+def cleanup_memory():
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    if hasattr(torch, "mps") and hasattr(torch.mps, "empty_cache"):
+        try:
+            torch.mps.empty_cache()
+        except Exception:
+            pass
+
+
+# =========================
+# 矩阵加载（支持 Matrix Market 和文本格式）
+# =========================
+def load_matrix(path: Path):
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        first = f.readline().strip()
+
+    if first.startswith("%%MatrixMarket"):
+        from scipy.io import mmread
+        A = mmread(path)
+        return A.toarray().astype(float)
+    else:
+        return np.loadtxt(path).astype(float)
+
+
+# =========================
+# 归一化（Min-Max 缩放到 [0,1]）
+# =========================
+def minmax_01(M, eps=1e-12):
+    mn, mx = M.min(), M.max()
+    if abs(mx - mn) < eps:
+        return np.zeros_like(M)
+    return (M - mn) / (mx - mn)
+
+
+# =========================
+# 算法 1：计算相似性矩阵 X、Z 和模块度矩阵 Q
+# =========================
+def compute_X(W, A, alpha=0.5, beta=0.5):
+    """
+    根据论文算法 1 计算考虑二阶邻居的相似性矩阵 X。
+    """
+    n = W.shape[0]
+    X = np.zeros((n, n), dtype=float)
+    B = A @ A
+
+    neighbors = [set(np.where(A[i] > 0)[0]) for i in range(n)]
+
+    for i in range(n):
+        for j in range(n):
+            if B[i, j] != 0:
+                common = neighbors[i] & neighbors[j]
+                W1 = sum(W[i, m] + W[m, j] for m in common)
+                X[i, j] = alpha * W[i, j] + beta * W1
+
+    return X
+
+
+def compute_Z(A):
+    """
+    根据论文算法 1 计算未加权网络的二阶邻接矩阵 Z。
+    """
+    B = A @ A
+    Z = 0.5 * A + B
+    return Z.astype(float)
+
+
+def compute_modularity_matrix(W):
+    """
+    计算加权网络的模块度矩阵 Q。
+    """
+    k = W.sum(axis=1)
+    twoW = W.sum()
+    Q = W - np.outer(k, k) / (twoW + 1e-12)
+    np.fill_diagonal(Q, 0)
+    return Q
+
+
+# =========================
+# 模块度 Q 值计算
+# =========================
+def modularity_score(W, labels):
+    n = W.shape[0]
+    m = W.sum() / 2.0
+    deg = W.sum(axis=1)
+
+    Qv = 0.0
+    for i in range(n):
+        for j in range(n):
+            if labels[i] == labels[j]:
+                Qv += W[i, j] - deg[i] * deg[j] / (2.0 * m + 1e-12)
+    return Qv / (2.0 * m + 1e-12)
+
+
+# =========================
+# 稀疏自编码器（Sigmoid 激活）
+# =========================
+class SparseAE(nn.Module):
+    def __init__(self, d_in, d_h):
+        super().__init__()
+        self.enc = nn.Linear(d_in, d_h)
+        self.dec = nn.Linear(d_h, d_in)
+        self.act = nn.Sigmoid()
+
+    def forward(self, x):
+        h = self.act(self.enc(x))
+        x_hat = self.act(self.dec(h))
+        return x_hat, h
+
+
+def kl_div(rho, rho_hat):
+    eps = 1e-8
+    rho_hat = torch.clamp(rho_hat, eps, 1 - eps)
+    return rho * torch.log(rho / rho_hat) + (1 - rho) * torch.log((1 - rho) / (1 - rho_hat))
+
+
+# =========================
+# 单层训练（不改原始逻辑）
+# =========================
+def train_one_layer(
+    X, Q, Z, d_h, device,
+    epochs=400, batch_size=32, lr=1e-2,
+    rho=0.05, lam_sparse=1e-4, layer_index=1
+):
+    d_in, n = X.shape
+
+    Xc = torch.tensor(X.T, dtype=torch.float32, device=device)
+    Qc = torch.tensor(Q.T, dtype=torch.float32, device=device)
+    Zc = torch.tensor(Z.T, dtype=torch.float32, device=device)
+
+    train_data = torch.cat([Xc, Qc, Zc], dim=0)
+    loader = DataLoader(
+        TensorDataset(train_data),
+        batch_size=batch_size,
+        shuffle=True
+    )
+
+    ae = SparseAE(d_in, d_h).to(device)
+    opt = torch.optim.Adam(ae.parameters(), lr=lr)
+    mse = nn.MSELoss()
+
+    for epoch in range(epochs):
+        for (batch,) in loader:
+            x_hat, h = ae(batch)
+            recon_loss = mse(x_hat, batch)
+            kl_term = kl_div(rho, h.mean(0)).sum()
+            total_loss = recon_loss + lam_sparse * kl_term
+
+            opt.zero_grad()
+            total_loss.backward()
+            opt.step()
+
+        if CONFIG["print_every_epoch"] and ((epoch + 1) % 50 == 0 or epoch == 0):
+            print(f"      layer {layer_index} | epoch {epoch + 1}/{epochs}")
+
+    with torch.no_grad():
+        _, HX = ae(Xc)
+        _, HQ = ae(Qc)
+        _, HZ = ae(Zc)
+
+        HX_np = HX.T.detach().cpu().numpy()
+        HQ_np = HQ.T.detach().cpu().numpy()
+        HZ_np = HZ.T.detach().cpu().numpy()
+
+    del Xc, Qc, Zc, train_data, loader
+    cleanup_memory()
+
+    return HX_np, HQ_np, HZ_np, ae.cpu()
+
+
+# =========================
+# 命名
+# =========================
+def build_run_name(dataset_name, alpha, T, h, rho, lr, lam_sparse):
+    return (
+        f"{CONFIG['experiment_tag']}_{dataset_name}"
+        f"_a{alpha:.1f}"
+        f"_T{int(T):02d}"
+        f"_h{int(h):03d}"
+        f"_rho{rho:.3f}"
+        f"_lr{lr:.4g}"
+        f"_lam{lam_sparse:.6f}"
+    )
+
+
+# =========================
+# 数据集预处理（只做一次）
+# =========================
+def prepare_dataset(input_path: Path):
+    dataset_name = input_path.stem
+
+    W = load_matrix(input_path)
+    W = 0.5 * (W + W.T)
+    np.fill_diagonal(W, 0)
+
+    A = (W > 0).astype(int)
+    Z = minmax_01(compute_Z(A))
+    Qm = minmax_01(compute_modularity_matrix(W))
+
+    n = W.shape[0]
+    edges = int(np.count_nonzero(np.triu(W > 0, k=1)))
+    density = 0.0 if n <= 1 else (2.0 * edges) / (n * (n - 1))
+
+    return {
+        "dataset_name": dataset_name,
+        "W": W,
+        "A": A,
+        "Z": Z,
+        "Qm": Qm,
+        "n": n,
+        "edges": edges,
+        "density": density,
+    }
+
+
+# =========================
+# 单组参数实验
+# 六参数：alpha, T, h, rho, lr, lam_sparse
+# =========================
+def run_single_experiment(
+    prepared,
+    alpha,
+    T,
+    h,
+    rho,
+    lr,
+    lam_sparse,
+    combo_index,
+    total_combos,
+    device
+):
+    set_seed(CONFIG["seed"])
+
+    dataset_name = prepared["dataset_name"]
+    W = prepared["W"]
+    A = prepared["A"]
+    Z = prepared["Z"]
+    Qm = prepared["Qm"]
+
+    beta = 1.0 - alpha
+    run_name = build_run_name(dataset_name, alpha, T, h, rho, lr, lam_sparse)
+
+    start_time = time.perf_counter()
+
+    print(
+        f"[{combo_index}/{total_combos}] {dataset_name} | "
+        f"alpha={alpha:.1f}, beta={beta:.1f}, T={T}, h={h}, "
+        f"rho={rho:.3f}, lr={lr:.4g}, lam_sparse={lam_sparse:.6f}"
+    )
+
+    # ---------- 计算 X（Qm 和 Z 已预计算） ----------
+    X = compute_X(W, A, alpha=alpha, beta=beta)
+    X = minmax_01(X)
+
+    # ---------- 深度稀疏自编码器堆叠训练 ----------
+    encoders = []
+    X_t, Q_t, Z_t = X, Qm, Z
+
+    for layer in range(T - 1):
+        print(f"   -> training layer {layer + 1}/{T - 1}")
+        HX, HQ, HZ, ae = train_one_layer(
+            X_t, Q_t, Z_t,
+            d_h=h,
+            device=device,
+            epochs=CONFIG["epochs"],
+            batch_size=CONFIG["batch_size"],
+            lr=lr,
+            rho=rho,
+            lam_sparse=lam_sparse,
+            layer_index=layer + 1,
+        )
+        encoders.append(ae)
+        X_t, Q_t, Z_t = HX, HQ, HZ
+
+        del HX, HQ, HZ
+        cleanup_memory()
+
+    # ---------- 最终特征提取 ----------
+    H = X.T
+    H_tensor = None
+    try:
+        for ae in encoders:
+            ae.eval()
+            ae.to(device)
+            H_tensor = torch.tensor(H, dtype=torch.float32, device=device)
+            with torch.no_grad():
+                _, H_hidden = ae(H_tensor)
+            H = H_hidden.detach().cpu().numpy()
+
+            del H_tensor, H_hidden
+            ae.to("cpu")
+            cleanup_memory()
+            H_tensor = None
+    finally:
+        if H_tensor is not None:
+            del H_tensor
+        cleanup_memory()
+
+    # ---------- K-means 聚类 ----------
+    best_Q, best_k = -1, None
+    for k in range(CONFIG["k_min"], CONFIG["k_max"] + 1):
+        kmeans = KMeans(
+            n_clusters=k,
+            n_init=CONFIG["k_n_init"],
+            random_state=CONFIG["seed"]
+        )
+        labels = kmeans.fit_predict(H)
+        Qv = modularity_score(W, labels)
+        if Qv > best_Q:
+            best_Q, best_k = float(Qv), int(k)
+
+    elapsed = time.perf_counter() - start_time
+
+    # ---------- 清理 ----------
+    del X, X_t, Q_t, Z_t, H, encoders
+    cleanup_memory()
+
+    print(
+        f"   -> done | best_k={best_k}, modularity={best_Q:.6f}, "
+        f"time={elapsed:.2f}s"
+    )
+
+    return {
+        "run_name": run_name,
+        "dataset": dataset_name,
+        "alpha": alpha,
+        "beta": beta,
+        "T": T,
+        "h": h,
+        "rho": rho,
+        "lr": lr,
+        "lam_sparse": lam_sparse,
+        "epochs": CONFIG["epochs"],
+        "batch_size": CONFIG["batch_size"],
+        "best_k": best_k,
+        "modularity": best_Q,
+        "time_seconds": elapsed,
+    }
+
+
+# =========================
+# 主程序：六参数联调
+# =========================
+def main():
+    set_seed(CONFIG["seed"])
+    device = get_device()
+    print(f"Using device: {device}")
+
+    out_root = Path(CONFIG["output_root"])
+    out_root.mkdir(parents=True, exist_ok=True)
+
+    print("=" * 110)
+    print(f"Experiment: {CONFIG['experiment_tag']}")
+    print(f"Device: {device}")
+    print(f"Datasets: {CONFIG['input_paths']}")
+    print(f"alpha_list: {CONFIG['alpha_list']}")
+    print(f"T_list: {CONFIG['T_list']}")
+    print(f"lam_sparse_list: {[float(x) for x in CONFIG['lam_sparse_list']]}")
+    print(f"h_list: {CONFIG['h_list']}")
+    print(f"rho_list: {CONFIG['rho_list']}")
+    print(f"lr_list: {CONFIG['lr_list']}")
+    print("=" * 110)
+
+    all_results = []
+    global_t0 = time.perf_counter()
+
+    search_space = list(itertools.product(
+        CONFIG["alpha_list"],
+        CONFIG["T_list"],
+        CONFIG["lam_sparse_list"],
+        CONFIG["h_list"],
+        CONFIG["rho_list"],
+        CONFIG["lr_list"],
+    ))
+    combos_per_dataset = len(search_space)
+
+    for input_str in CONFIG["input_paths"]:
+        dataset_t0 = time.perf_counter()
+        input_path = Path(input_str)
+
+        prepared = prepare_dataset(input_path)
+        dataset_name = prepared["dataset_name"]
+
+        print("\n" + "=" * 110)
+        print(f"Dataset: {dataset_name}")
+        print(f"Nodes: {prepared['n']} | Edges: {prepared['edges']} | Density: {prepared['density']:.6f}")
+        print(f"Total combos for this dataset: {combos_per_dataset}")
+        print("=" * 110)
+
+        dataset_results = []
+
+        for idx, (alpha, T, lam_sparse, h, rho, lr) in enumerate(search_space, start=1):
+            result = run_single_experiment(
+                prepared=prepared,
+                alpha=float(alpha),
+                T=int(T),
+                h=int(h),
+                rho=float(rho),
+                lr=float(lr),
+                lam_sparse=float(lam_sparse),
+                combo_index=idx,
+                total_combos=combos_per_dataset,
+                device=device,
+            )
+            dataset_results.append(result)
+            all_results.append(result)
+
+        df_dataset = pd.DataFrame(dataset_results)
+        if not df_dataset.empty:
+            best_idx = df_dataset["modularity"].idxmax()
+            df_dataset["is_best_for_dataset"] = False
+            df_dataset.loc[best_idx, "is_best_for_dataset"] = True
+        else:
+            best_idx = None
+
+        dataset_elapsed = time.perf_counter() - dataset_t0
+
+        if best_idx is not None:
+            best_row = df_dataset.loc[best_idx]
+            print(
+                f"\n*** BEST for {dataset_name} *** "
+                f"alpha={best_row['alpha']:.1f}, beta={best_row['beta']:.1f}, "
+                f"T={int(best_row['T'])}, h={int(best_row['h'])}, "
+                f"rho={best_row['rho']:.3f}, lr={best_row['lr']:.4g}, "
+                f"lam_sparse={best_row['lam_sparse']:.6f}, "
+                f"best_k={int(best_row['best_k'])}, modularity={best_row['modularity']:.6f}"
+            )
+        print(f"Dataset {dataset_name} finished in {dataset_elapsed:.2f}s")
+
+        # 单个数据集 Excel
+        if CONFIG["save_excel"]:
+            dataset_excel = out_root / f"{CONFIG['experiment_tag']}_{dataset_name}_summary.xlsx"
+            with pd.ExcelWriter(dataset_excel, engine="openpyxl") as writer:
+                df_dataset.to_excel(writer, sheet_name="results", index=False)
+
+        del prepared, dataset_results, df_dataset
+        cleanup_memory()
+
+    global_t1 = time.perf_counter()
+
+    # ---------- 全局汇总 ----------
+    df_all = pd.DataFrame(all_results)
+    if not df_all.empty:
+        best_idx_all = df_all.groupby("dataset")["modularity"].idxmax()
+        df_best = df_all.loc[best_idx_all].sort_values("dataset").reset_index(drop=True)
+    else:
+        df_best = pd.DataFrame()
+
+    # 全局 Excel
+    if CONFIG["save_excel"]:
+        global_excel = out_root / f"{CONFIG['experiment_tag']}_global_summary.xlsx"
+        with pd.ExcelWriter(global_excel, engine="openpyxl") as writer:
+            df_all.to_excel(writer, sheet_name="all_results", index=False)
+            if not df_best.empty:
+                df_best.to_excel(writer, sheet_name="best_by_dataset", index=False)
+
+            for dataset_name, df_dataset in df_all.groupby("dataset"):
+                sheet_name = f"{dataset_name}_results"[:31]
+                df_dataset = df_dataset.sort_values(
+                    by=["alpha", "T", "lam_sparse", "h", "rho", "lr"]
+                ).reset_index(drop=True)
+
+                best_idx = df_dataset["modularity"].idxmax()
+                df_dataset["is_best_for_dataset"] = False
+                df_dataset.loc[best_idx, "is_best_for_dataset"] = True
+
+                df_dataset.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    print("\n" + "=" * 110)
+    print(f"All {CONFIG['experiment_tag']} experiments finished.")
+    print(f"Total time: {global_t1 - global_t0:.2f} seconds")
+    print(f"Results saved in: {out_root}")
+    if not df_best.empty:
+        print("\nBest by dataset:")
+        for _, row in df_best.iterrows():
+            print(
+                f"  {row['dataset']}: alpha={row['alpha']:.1f}, beta={row['beta']:.1f}, "
+                f"T={int(row['T'])}, h={int(row['h'])}, rho={row['rho']:.3f}, "
+                f"lr={row['lr']:.4g}, lam_sparse={row['lam_sparse']:.6f}, "
+                f"best_k={int(row['best_k'])}, modularity={row['modularity']:.6f}"
+            )
+    print("=" * 110)
+
+
+if __name__ == "__main__":
+    main()

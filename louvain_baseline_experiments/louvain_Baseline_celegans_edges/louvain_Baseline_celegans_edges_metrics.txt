@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_celegans_edges
+dataset celegans_edges
+method louvain
+n 297
+edges 1918
+density 0.04363454363454364
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 26
+modularity_custom 0.41900271381903537
+modularity_louvain_api 0.41900271381903736
+graph_build_time_seconds 0.013236500002676621
+louvain_time_seconds 0.0702945999946678
+time_seconds 0.1168926999962423

@@ -24,7 +24,9 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="parameters_test_overall.py" />
+    <Compile Include="gpu_bench.py" />
+    <Compile Include="parameters_test_3.py" />
+    <Compile Include="parameters_test_5.py" />
     <Compile Include="scripts\convert_football_to_1based.py" />
     <Compile Include="stacked_sparse_version.py" />
     <Compile Include="Test_upon_network X.py" />

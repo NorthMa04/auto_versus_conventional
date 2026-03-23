@@ -14,109 +14,37 @@ import matplotlib.pyplot as plt
 # =========================
 # 全部配置统一放在这里
 # =========================
-# =========================
-# 全部配置统一放在这里
-# =========================
 CONFIG = {
     # ----- reproducibility -----
     "seed": 0,
-    # 随机种子，用于保证实验可复现。
-    # 会同时影响：
-    # 1) numpy 的随机数
-    # 2) PyTorch 的随机初始化与训练过程
-    # 3) KMeans 的随机初始化
-    # 一般做论文复现或参数对比时，这个值建议固定。
 
     # ----- input / output -----
     "input_path": "lesmis.txt",
-    # 输入网络数据文件路径。
-    # 当前代码支持两类格式：
-    # 1) Matrix Market 格式（文件首行以 %%MatrixMarket 开头）
-    # 2) 普通文本矩阵格式（可被 np.loadtxt 直接读取）
-    # 默认假设读入的是一个加权邻接矩阵。
 
     # ----- feature construction -----
     "alpha": 0.9,
-    # 相似性矩阵 X 中的一阶邻接权重系数。
-    # 对应 compute_X 中：
-    #     alpha * W[i, j]
-    # 用来衡量节点 i 与 j 的直接连接权重贡献。
-
     "beta": 0.1,
-    # 相似性矩阵 X 中的二阶共同邻居权重系数。
-    # 对应 compute_X 中：
-    #     beta * sum(W[i, m] + W[m, j])
-    # 其中 m 是 i 和 j 的共同邻居。
-    # beta 越大，表示越重视“通过共同邻居形成的相似性”。
 
     # ----- one-layer sparse AE training -----
     "epochs": 400,
-    # 单层稀疏自编码器的训练轮数。
-    # 每训练一层编码器，都会完整遍历训练集 epochs 次。
-    # 数值越大，单层训练越充分，但总耗时也会增加。
-
     "batch_size": 32,
-    # 小批量训练时每个 batch 的样本数。
-    # 当前训练集由 X、Q、Z 三组样本拼接而成，总大小约为 3n。
-    # batch_size 越小，梯度更新更频繁；越大，单步更稳定但占用显存更多。
-
     "lr": 1e-2,
-    # Adam 优化器的学习率。
-    # 控制参数更新步长。
-    # 如果训练不稳定、震荡明显，可适当减小；
-    # 如果收敛太慢，可谨慎增大。
-
     "rho": 0.05,
-    # 稀疏约束中的目标平均激活值。
-    # 对应 KL 散度项中的目标稀疏水平。
-    # rho 越小，表示希望隐藏层神经元平均激活越稀疏。
-
     "lam_sparse": 1e-4,
-    # 稀疏正则项的权重系数。
-    # 总损失为：
-    #     reconstruction_loss + lam_sparse * KL_sparse_penalty
-    # 该值越大，模型越强调稀疏性；越小，越偏重重构精度。
 
     # ----- stacked deep sparse AE -----
     "T": 8,
-    # 深度稀疏自编码器中的“最终层编号”。
-    # 当前主程序按论文写法使用：
-    #     for layer in range(T - 1)
-    # 即实际训练的编码器层数为 T - 1。
-    # 例如 T=8 时，会训练 7 层。
-
     "h": 32,
-    # 每一层稀疏自编码器的隐藏层维度。
-    # 当前代码中所有层都使用相同的隐藏维度 h，
-    # 即每一层都把输入映射到 h 维特征空间。
-    # h 越小，压缩越强；h 越大，保留信息越多。
 
     # ----- kmeans -----
     "k_min": 2,
-    # KMeans 聚类时搜索的最小社区数。
-    # 当前代码会遍历 k = k_min, ..., k_max。
-
     "k_max": 14,
-    # KMeans 聚类时搜索的最大社区数。
-    # 每个 k 都会执行一次聚类，并计算对应模块度 Q 值，
-    # 最终选择模块度最高的结果作为输出。
-
     "k_n_init": 20,
-    # KMeans 的初始化次数。
-    # sklearn 会运行多次不同初始中心的 KMeans，
-    # 然后保留其中最优结果。
-    # 该值越大，结果通常越稳定，但耗时也会增加。
 
     # ----- visualization -----
     "figsize": (8, 6),
-    # 最终社区可视化图的画布大小，传给 plt.figure(figsize=...)。
-
     "dpi": 300,
-    # 输出图片的分辨率。
-    # dpi 越高，保存的图片越清晰，文件体积通常也会更大。
-
     "scatter_size": 60,
-    # PCA 降维后散点图中，每个节点对应点的大小。
 }
 
 
@@ -161,13 +89,6 @@ def minmax_01(M, eps=1e-12):
 # 算法 1：计算相似性矩阵 X、Z 和模块度矩阵 Q
 # =========================
 def compute_X(W, A, alpha=0.5, beta=0.5):
-    """
-    根据论文算法 1 计算考虑二阶邻居的相似性矩阵 X。
-    这里严格按算法 1 的写法实现：
-    1) 先计算 B = A^2
-    2) 对所有 i, j 遍历
-    3) 仅当 B[i, j] != 0 时，才计算 X[i, j]
-    """
     n = W.shape[0]
     X = np.zeros((n, n), dtype=float)
     B = A @ A
@@ -185,22 +106,14 @@ def compute_X(W, A, alpha=0.5, beta=0.5):
 
 
 def compute_Z(A):
-    """
-    根据论文算法 1 计算未加权网络的二阶邻接矩阵 Z。
-    Z = 0.5 * A + A^2
-    这里不额外清零对角线，保持与论文伪代码一致。
-    """
     B = A @ A
     Z = 0.5 * A + B
     return Z.astype(float)
 
 
 def compute_modularity_matrix(W):
-    """
-    计算加权网络的模块度矩阵 Q (公式 3)。
-    """
-    k = W.sum(axis=1)                 # 节点强度
-    twoW = W.sum()                    # 总权重
+    k = W.sum(axis=1)
+    twoW = W.sum()
     Q = W - np.outer(k, k) / (twoW + 1e-12)
     np.fill_diagonal(Q, 0)
     return Q
@@ -210,12 +123,9 @@ def compute_modularity_matrix(W):
 # 模块度 Q 值计算（评价指标）
 # =========================
 def modularity_score(W, labels):
-    """
-    计算给定划分的模块度 Q (公式 10)。
-    """
     n = W.shape[0]
-    m = W.sum() / 2.0                 # 总边权的一半
-    deg = W.sum(axis=1)               # 节点强度
+    m = W.sum() / 2.0
+    deg = W.sum(axis=1)
 
     Qv = 0.0
     for i in range(n):
@@ -242,9 +152,6 @@ class SparseAE(nn.Module):
 
 
 def kl_div(rho, rho_hat):
-    """
-    KL 散度用于稀疏约束 (公式 9)。
-    """
     eps = 1e-8
     rho_hat = torch.clamp(rho_hat, eps, 1 - eps)
     return rho * torch.log(rho / rho_hat) + (1 - rho) * torch.log((1 - rho) / (1 - rho_hat))
@@ -252,23 +159,14 @@ def kl_div(rho, rho_hat):
 
 def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-2,
                     rho=0.05, lam_sparse=1e-4):
-    """
-    训练一层稀疏自编码器。
-    这里按论文“Use X, Q, and Z to form the training set”理解为：
-    使用同一个稀疏自编码器，把 X、Q、Z 三组样本合并成一个训练集来训练。
-
-    返回：
-        HX, HQ, HZ : 当前层输出的低维特征矩阵 (形状: d_h × n)
-        ae : 当前层训练好的自编码器（已在 CPU 上）
-    """
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    d_in, n = X.shape                  # 每一列是一个样本
-    Xc = torch.tensor(X.T, dtype=torch.float32, device=device)   # n × d_in
+    d_in, n = X.shape
+    Xc = torch.tensor(X.T, dtype=torch.float32, device=device)
     Qc = torch.tensor(Q.T, dtype=torch.float32, device=device)
     Zc = torch.tensor(Z.T, dtype=torch.float32, device=device)
 
-    train_data = torch.cat([Xc, Qc, Zc], dim=0)                  # 3n × d_in
+    train_data = torch.cat([Xc, Qc, Zc], dim=0)
     loader = DataLoader(TensorDataset(train_data),
                         batch_size=batch_size, shuffle=True)
 
@@ -297,7 +195,21 @@ def train_one_layer(X, Q, Z, d_h, epochs=400, batch_size=32, lr=1e-2,
 # 主程序：完整 WCD 算法
 # =========================
 def main():
+    # 全局计时开始
+    global_start = time.perf_counter()
+
     set_seed(CONFIG["seed"])
+
+    # 打印设备信息（CPU / CUDA）并在使用 CUDA 时打印 GPU 名称
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if device == "cuda":
+        try:
+            gpu_name = torch.cuda.get_device_name(0)
+        except Exception:
+            gpu_name = "Unknown GPU"
+        print(f"Using device: CUDA (GPU: {gpu_name})")
+    else:
+        print("Using device: CPU")
 
     # 输入数据路径（请根据实际情况修改）
     input_path = Path(CONFIG["input_path"])
@@ -309,37 +221,33 @@ def main():
 
     # ---------- 加载并预处理原始加权网络 ----------
     W = load_matrix(input_path)
-    W = 0.5 * (W + W.T)                       # 确保对称
-    np.fill_diagonal(W, 0)                    # 对角线置 0
+    W = 0.5 * (W + W.T)
+    np.fill_diagonal(W, 0)
 
-    A = (W > 0).astype(int)                   # 未加权邻接矩阵
+    A = (W > 0).astype(int)
 
     # ---------- 算法 1：计算三个特征矩阵 ----------
     X = compute_X(
         W, A,
         alpha=CONFIG["alpha"],
         beta=CONFIG["beta"]
-    )                                         # 相似性矩阵（公式 1）
-    Z = compute_Z(A)                          # 二阶邻接矩阵
-    Qm = compute_modularity_matrix(W)         # 模块度矩阵（公式 3）
+    )
+    Z = compute_Z(A)
+    Qm = compute_modularity_matrix(W)
 
-    # 归一化到 [0,1]（论文未明确要求，但有利于训练）
+    # 归一化到 [0,1]
     X = minmax_01(X)
     Z = minmax_01(Z)
     Qm = minmax_01(Qm)
 
     # ---------- 深度稀疏自编码器堆叠训练（算法 2） ----------
-    # 这里保留原始代码风格，只修正论文中的层数循环。
-    T = CONFIG["T"]           # 论文中的最终层编号
-    h = CONFIG["h"]           # 隐藏层维度（后续可在参数实验中系统比较）
+    T = CONFIG["T"]
+    h = CONFIG["h"]
 
-    # 保存每一层训练好的编码器（用于最终前向传播）
     encoders = []
 
-    # 初始输入
     X_t, Q_t, Z_t = X, Qm, Z
 
-    # 论文算法 2：for j = 1 -> T - 1
     for layer in range(T - 1):
         print(f"Training layer {layer + 1}/{T - 1} ...")
         HX, HQ, HZ, ae = train_one_layer(
@@ -354,9 +262,9 @@ def main():
         encoders.append(ae)
         X_t, Q_t, Z_t = HX, HQ, HZ
 
-    # ---------- 最终特征提取：原始相似性矩阵 X 依次通过训练好的 deep sparse autoencoder ----------
+    # ---------- 最终特征提取 ----------
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    H = X.T                                  # 原始 X，形状 n × d_in
+    H = X.T
 
     for ae in encoders:
         ae.eval()
@@ -365,8 +273,6 @@ def main():
         with torch.no_grad():
             _, H_hidden = ae(H_tensor)
         H = H_hidden.cpu().numpy()
-
-    # 此时 H 对应论文中的 X^(T)
 
     # ---------- K-means 聚类 ----------
     best_Q, best_k, best_labels = -1, None, None
@@ -422,9 +328,13 @@ def main():
     plt.savefig(out_dir / "community.png", dpi=CONFIG["dpi"])
     plt.close()
 
+    # 全局计时结束并打印
+    global_end = time.perf_counter()
+    total_runtime = global_end - global_start
+
     print(f"Finished. Q = {best_Q:.4f}, k = {best_k}")
     print(f"Results saved in {out_dir}")
-
+    print(f"Program runtime: {total_runtime:.2f} seconds")
 
 if __name__ == "__main__":
     main()
