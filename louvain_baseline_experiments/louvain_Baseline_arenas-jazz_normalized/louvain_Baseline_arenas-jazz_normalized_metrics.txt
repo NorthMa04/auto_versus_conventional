@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_arenas-jazz_normalized
+dataset arenas-jazz_normalized
+method louvain
+n 198
+edges 2742
+density 0.14059375480695277
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 4
+modularity_custom 0.445026802990566
+modularity_louvain_api 0.44502680299057107
+graph_build_time_seconds 0.006389199999830453
+louvain_time_seconds 0.02958680000028835
+time_seconds 0.13602069999978994

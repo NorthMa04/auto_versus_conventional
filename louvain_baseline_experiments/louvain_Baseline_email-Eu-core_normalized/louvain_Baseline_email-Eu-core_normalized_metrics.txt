@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_email-Eu-core_normalized
+dataset email-Eu-core_normalized
+method louvain
+n 986
+edges 16064
+density 0.033080384262929745
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 8
+modularity_custom 0.4271652886955044
+modularity_louvain_api 0.4271652886954376
+graph_build_time_seconds 0.1273912000006021
+louvain_time_seconds 0.31372670000018843
+time_seconds 0.7477324999999837

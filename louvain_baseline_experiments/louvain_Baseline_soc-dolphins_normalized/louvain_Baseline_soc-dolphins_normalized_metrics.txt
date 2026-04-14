@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_soc-dolphins_normalized
+dataset soc-dolphins_normalized
+method louvain
+n 62
+edges 159
+density 0.08408249603384453
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 6
+modularity_custom 0.5165539337842615
+modularity_louvain_api 0.516553933784265
+graph_build_time_seconds 0.0017905999993672594
+louvain_time_seconds 0.02540969999972731
+time_seconds 0.12045570000191219

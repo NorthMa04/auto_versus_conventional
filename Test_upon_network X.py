@@ -24,10 +24,15 @@ CONFIG = {
 
     # ----- datasets -----
     "input_paths": [
-        "lesmis.txt",
-        "football.txt",
-        "celegans_edges.txt",
+        #"lesmis.txt",
+        #"football.txt",
+        #"celegans_edges.txt",
         # "hep-th.txt",   # 当前先不跑
+        #"arenas-jazz_normalized.txt",
+        #"email-Eu-core_normalized.txt",
+        #"polbooks_normalized.txt"
+        "soc-dolphins_normalized.txt",
+        #"ucidata-zachary_normalized.txt",
     ],
     # 待测试的数据集列表。
 

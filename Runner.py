@@ -9,7 +9,6 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from sklearn.cluster import KMeans
-
 import pandas as pd
 
 
@@ -18,69 +17,34 @@ import pandas as pd
 # =========================
 CONFIG = {
     # ----- experiment identity -----
-    "experiment_tag": "full_param_grid",
+    "experiment_tag": "official_engineering_optimized",
 
     # ----- reproducibility -----
     "seed": 0,
 
     # ----- datasets -----
     "input_paths": [
-        #"football.txt",
         #"lesmis.txt",
-        #"celegans_edges.txt",
-        #"hep-th.txt",
-        #"advogato_normalized.txt",
-    	#"arenas-jazz_normalized.txt",
-    	#"CA-GrQc_normalized.txt",
-    	#"email-Eu-core_normalized.txt",
-    	#"polbooks_normalized.txt",
-    	#"soc-dolphins_normalized.txt",
-    	#"soc-sign-Slashdot090216_normalized.txt",
-    	#"ucidata-zachary_normalized.txt"
-	    #"er_dense_normalized.txt",
-    	#"er_sparse_normalized.txt",
-    	#"lfr_like_1_normalized.txt",
-    	#"lfr_like_2_normalized.txt",
-    	#"sbm_blurry_normalized.txt",
-    	#"sbm_clear_normalized.txt"
-
+        "football.txt",
+        # "celegans_edges.txt",
+        # "hep-th.txt",
     ],
 
     # ----- output -----
     "output_root": "wcd_experiments",
 
     # =========================================================
-    # 六参数联调
-    # 细扫：alpha, T, lam_sparse
-    # 粗扫：h, rho, lr
-    # 另外再联调：epochs, batch_size, k_min, k_max, k_n_init
+    # 参数搜索空间（你按需要改）
     # =========================================================
-
-    # ----- fine search 1: alpha -----
-    "alpha_list": [0.1,0.3,0.5,0.7,0.9],
-    # beta 自动取 1 - alpha
-
-    # ----- fine search 2: compression layers -----
-    # 注意：代码里实际训练层数是 T - 1
-    "T_list": [6,8,10],
-
-    # ----- fine search 3: sparse penalty -----
-    "lam_sparse_list": [0.0001,0.00033,0.00066,0.01],
-
-    # ----- coarse search 1: hidden size -----
-    "h_list": [16,32,48],
-
-    # ----- coarse search 2: rho -----
+   "input_paths": ["lesmis.txt"],
+    "alpha_list": [0.5],
+    "T_list": [6],
+    "lam_sparse_list": [0.0001],
+    "h_list": [32],
     "rho_list": [0.05],
-
-    # ----- coarse search 3: learning rate -----
-    "lr_list": [0.01,0.02],
-
-    # ----- training params -----
-    "epochs_list": [600],
-    "batch_size_list": [16,32],
-
-    # ----- kmeans -----
+    "lr_list": [1e-2],
+    "epochs_list": [500],
+    "batch_size_list": [16],
     "k_min_list": [2],
     "k_max_list": [14],
     "k_n_init_list": [10],
@@ -162,9 +126,8 @@ def minmax_01(M, eps=1e-12):
 # =========================
 def compute_X(W, A, alpha=0.5, beta=0.5):
     """
-    根据论文算法 1 计算考虑二阶邻居的相似性矩阵 X。
-    修正点：
-    1) 直接边 alpha * W[i,j] 应始终保留
+    当前采用的实现解释：
+    1) 直接边 alpha * W[i,j] 始终保留
     2) 若存在共同邻居，再叠加 beta * W1
     """
     n = W.shape[0]
@@ -175,15 +138,11 @@ def compute_X(W, A, alpha=0.5, beta=0.5):
 
     for i in range(n):
         for j in range(n):
-            # 直接边信息始终保留
             x_ij = alpha * W[i, j]
-
-            # 若存在二阶路径，再加共同邻居项
             if B[i, j] != 0:
                 common = neighbors[i] & neighbors[j]
                 W1 = sum(W[i, m] + W[m, j] for m in common)
                 x_ij += beta * W1
-
             X[i, j] = x_ij
 
     return X
@@ -248,14 +207,15 @@ def kl_div(rho, rho_hat):
 
 
 # =========================
-# 单层训练（不改原始逻辑）
+# 单层训练（保持原训练行为）
+# 不动 DataLoader / TensorDataset / shuffle=True
 # =========================
 def train_one_layer(
     X, Q, Z, d_h, device,
     epochs=400, batch_size=32, lr=1e-2,
     rho=0.05, lam_sparse=1e-4, layer_index=1
 ):
-    d_in, n = X.shape
+    d_in, _ = X.shape
 
     Xc = torch.tensor(X.T, dtype=torch.float32, device=device)
     Qc = torch.tensor(Q.T, dtype=torch.float32, device=device)
@@ -320,6 +280,7 @@ def build_run_name(dataset_name, alpha, T, h, rho, lr, lam_sparse, batch_size, e
 
 # =========================
 # 数据集预处理（只做一次）
+# 工程优化：加入 X_cache
 # =========================
 def prepare_dataset(input_path: Path):
     dataset_name = input_path.stem
@@ -345,7 +306,7 @@ def prepare_dataset(input_path: Path):
         "n": n,
         "edges": edges,
         "density": density,
-        "X_cache": {},
+        "X_cache": {},  # alpha -> normalized X
     }
 
 
@@ -390,13 +351,15 @@ def run_single_experiment(
         f"k_range=[{k_min},{k_max}], k_n_init={k_n_init}"
     )
 
-    # ---------- 计算 X（Qm 和 Z 已预计算） ----------
-    if alpha not in prepared["X_cache"]:
+    # ---------- 工程优化：缓存 X ----------
+    x_key = float(alpha)
+    if x_key not in prepared["X_cache"]:
         X = compute_X(W, A, alpha=alpha, beta=beta)
         X = minmax_01(X)
-        prepared["X_cache"][alpha] = X
+        prepared["X_cache"][x_key] = X
     else:
-        X = prepared["X_cache"][alpha]
+        X = prepared["X_cache"][x_key]
+
     # ---------- 深度稀疏自编码器堆叠训练 ----------
     encoders = []
     X_t, Q_t, Z_t = X, Qm, Z
@@ -457,7 +420,7 @@ def run_single_experiment(
     elapsed = time.perf_counter() - start_time
 
     # ---------- 清理 ----------
-    del X, X_t, Q_t, Z_t, H, encoders
+    del X_t, Q_t, Z_t, H, encoders
     cleanup_memory()
 
     print(
@@ -488,6 +451,7 @@ def run_single_experiment(
 
 # =========================
 # 主程序：联调
+# 工程优化：去掉全局 Excel
 # =========================
 def main():
     set_seed(CONFIG["seed"])
@@ -514,7 +478,6 @@ def main():
     print(f"k_n_init_list: {CONFIG['k_n_init_list']}")
     print("=" * 120)
 
-    all_results = []
     global_t0 = time.perf_counter()
 
     search_space = list(itertools.product(
@@ -571,7 +534,6 @@ def main():
                 device=device,
             )
             dataset_results.append(result)
-            all_results.append(result)
 
         df_dataset = pd.DataFrame(dataset_results)
         if not df_dataset.empty:

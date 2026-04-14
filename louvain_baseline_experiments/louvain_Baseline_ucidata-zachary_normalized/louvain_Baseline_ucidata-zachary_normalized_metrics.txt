@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_ucidata-zachary_normalized
+dataset ucidata-zachary_normalized
+method louvain
+n 34
+edges 78
+density 0.13903743315508021
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 4
+modularity_custom 0.4197896120973041
+modularity_louvain_api 0.41978961209730437
+graph_build_time_seconds 0.001372099999571219
+louvain_time_seconds 0.0037578999981633388
+time_seconds 0.08097080000152346
