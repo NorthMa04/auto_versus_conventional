@@ -11,6 +11,6 @@ weight_key weight
 num_communities 4
 modularity_custom 0.445026802990566
 modularity_louvain_api 0.44502680299057107
-graph_build_time_seconds 0.006389199999830453
-louvain_time_seconds 0.02958680000028835
-time_seconds 0.13602069999978994
+graph_build_time_seconds 0.010287399999924673
+louvain_time_seconds 0.05012560000022859
+time_seconds 0.18058209999981045

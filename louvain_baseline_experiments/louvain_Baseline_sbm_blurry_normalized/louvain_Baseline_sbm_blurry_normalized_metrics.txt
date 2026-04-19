@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_sbm_blurry_normalized
+dataset sbm_blurry_normalized
+method louvain
+n 200
+edges 2213
+density 0.11120603015075377
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 7
+modularity_custom 0.16920534270543985
+modularity_louvain_api 0.1692053427054404
+graph_build_time_seconds 0.011005599997588433
+louvain_time_seconds 0.05394119999255054
+time_seconds 0.18856190000951756

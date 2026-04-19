@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_ia-primary-school-proximity
+dataset ia-primary-school-proximity
+method louvain
+n 242
+edges 8317
+density 0.28520969788416034
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 6
+modularity_custom 0.6727315240880098
+modularity_louvain_api 0.6727315240880086
+graph_build_time_seconds 0.016186900000320747
+louvain_time_seconds 0.11515730000974145
+time_seconds 0.23775219998788089

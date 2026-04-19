@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_adjnoun
+dataset adjnoun
+method louvain
+n 112
+edges 425
+density 0.06837194337194337
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 7
+modularity_custom 0.2945439446366794
+modularity_louvain_api 0.29454394463667816
+graph_build_time_seconds 0.0025748000043677166
+louvain_time_seconds 0.029811300002620555
+time_seconds 0.08999459999904502

@@ -27,12 +27,25 @@ CONFIG = {
         #"lesmis.txt",
         #"football.txt",
         #"celegans_edges.txt",
-        # "hep-th.txt",   # 当前先不跑
-        #"arenas-jazz_normalized.txt",
+        #"hep-th.txt",   # 当前先不跑
+        "arenas-jazz_normalized.txt",
         #"email-Eu-core_normalized.txt",
         #"polbooks_normalized.txt"
-        "soc-dolphins_normalized.txt",
+        #"soc-dolphins_normalized.txt",
         #"ucidata-zachary_normalized.txt",
+        #"lfr_like_2_normalized.txt",
+        #"adjnoun.txt"
+        #"ca-netscience.txt"
+        #"eco-foodweb-baywet.txt"
+        #"er_dense_normalized.txt",
+        #"er_sparse_normalized.txt",
+        #"ia-enron-only.txt"，
+        #"ia-infect-hyper.txt",
+        #"ia-primary-school-proximity.txt",
+        #"ia-workplace-contacts.txt"
+        #"lfr_like_2_normalized.txt",
+        #"sbm_blurry_normalized.txt",
+        #"er_dense_normalized.txt",
     ],
     # 待测试的数据集列表。
 

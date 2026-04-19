@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_ia-enron-only
+dataset ia-enron-only
+method louvain
+n 143
+edges 623
+density 0.061361174037230376
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 7
+modularity_custom 0.5678678995900801
+modularity_louvain_api 0.5678678995900848
+graph_build_time_seconds 0.020167800001217984
+louvain_time_seconds 0.012199200005852617
+time_seconds 0.09975580000900663

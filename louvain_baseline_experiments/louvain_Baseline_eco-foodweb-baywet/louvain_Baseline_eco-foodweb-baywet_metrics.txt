@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_eco-foodweb-baywet
+dataset eco-foodweb-baywet
+method louvain
+n 128
+edges 2075
+density 0.2552903543307087
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 4
+modularity_custom 0.363010639152006
+modularity_louvain_api 0.363010639152008
+graph_build_time_seconds 0.022882400007802062
+louvain_time_seconds 0.025638000006438233
+time_seconds 0.12058539999998175

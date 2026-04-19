@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_er_sparse_normalized
+dataset er_sparse_normalized
+method louvain
+n 200
+edges 988
+density 0.049648241206030154
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 10
+modularity_custom 0.281249487780492
+modularity_louvain_api 0.2812494877804914
+graph_build_time_seconds 0.005859099997906014
+louvain_time_seconds 0.038349700000253506
+time_seconds 0.13406520000717137

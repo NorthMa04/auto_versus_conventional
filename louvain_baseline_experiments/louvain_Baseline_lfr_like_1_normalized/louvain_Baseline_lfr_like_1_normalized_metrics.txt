@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_lfr_like_1_normalized
+dataset lfr_like_1_normalized
+method louvain
+n 300
+edges 944
+density 0.0210479375696767
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 8
+modularity_custom 0.4416858197723817
+modularity_louvain_api 0.44168581977236876
+graph_build_time_seconds 0.02569229999789968
+louvain_time_seconds 0.04449999998905696
+time_seconds 0.15457140000944491

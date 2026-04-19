@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_ca-netscience
+dataset ca-netscience
+method louvain
+n 379
+edges 914
+density 0.012759838617358406
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 19
+modularity_custom 0.8472006090523905
+modularity_louvain_api 0.8472006090524733
+graph_build_time_seconds 0.036112499990849756
+louvain_time_seconds 0.03563209999992978
+time_seconds 0.16097779999836348

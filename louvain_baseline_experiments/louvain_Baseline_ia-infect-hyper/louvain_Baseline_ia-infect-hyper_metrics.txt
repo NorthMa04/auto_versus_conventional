@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_ia-infect-hyper
+dataset ia-infect-hyper
+method louvain
+n 113
+edges 2196
+density 0.3470290771175727
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 6
+modularity_custom 0.10169477291050767
+modularity_louvain_api 0.10169477291050791
+graph_build_time_seconds 0.02765410000574775
+louvain_time_seconds 0.02748619999329094
+time_seconds 0.12428229999204632

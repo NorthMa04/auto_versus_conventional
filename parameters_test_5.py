@@ -25,27 +25,27 @@ CONFIG = {
 
     # ----- datasets -----
     "input_paths": [
-        #"football.txt",
         #"lesmis.txt",
-        #"celegans_edges.txt",
-        #"hep-th.txt",
-        #"advogato_normalized.txt",
-    	#"arenas-jazz_normalized.txt",
-    	#"CA-GrQc_normalized.txt",
-    	#"email-Eu-core_normalized.txt",
-    	#"polbooks_normalized.txt",
-    	#"soc-dolphins_normalized.txt",
-    	#"soc-sign-Slashdot090216_normalized.txt",
-    	#"ucidata-zachary_normalized.txt"
-	    #"er_dense_normalized.txt",
-    	#"er_sparse_normalized.txt",
-    	#"lfr_like_1_normalized.txt",
-    	#"lfr_like_2_normalized.txt",
-    	#"sbm_blurry_normalized.txt",
-    	#"sbm_clear_normalized.txt"
-
+        #"football.txt",
+        "arenas-jazz_normalized.txt",
+        "polbooks_normalized.txt",
+        #"soc-dolphins_normalized.txt",
+        #"ucidata-zachary_normalized.txt",
+        #"ia-primary-school-proximity.txt",
+        #"ia-workplace-contacts.txt",
+        #"ia-enron-only.txt",
+        #"ia-infect-hyper.txt",
+        #"eco-foodweb-baywet.txt",
+        #"ca-netscience.txt",
+        #"adjnoun.txt",
+        # synthetic
+        #"er_dense_normalized.txt",
+        #"er_sparse_normalized.txt",
+        #"lfr_like_1_normalized.txt",
+        #"lfr_like_2_normalized.txt",
+        #"sbm_blurry_normalized.txt",
+        #"sbm_clear_normalized.txt"
     ],
-
     # ----- output -----
     "output_root": "wcd_experiments",
 
@@ -81,8 +81,8 @@ CONFIG = {
     "batch_size_list": [16,32],
 
     # ----- kmeans -----
-    "k_min_list": [2],
-    "k_max_list": [14],
+    "k_min_list": [4],
+    "k_max_list": [18],
     "k_n_init_list": [10],
 
     # ----- device / stability -----

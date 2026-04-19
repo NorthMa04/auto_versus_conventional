@@ -32,6 +32,7 @@
     <Compile Include="Runner.py" />
     <Compile Include="scripts\convert_football_to_1based.py" />
     <Compile Include="stacked_sparse_version.py" />
+    <Compile Include="Test.py" />
     <Compile Include="Test_upon_network X.py" />
     <Compile Include="wcd_adaptive_time.py" />
     <Compile Include="wcd_fixed_time.py" />
@@ -40,16 +41,24 @@
     <Content Include="advogato_normalized.txt" />
     <Content Include="arenas-jazz_normalized.txt" />
     <Content Include="CA-GrQc_normalized.txt" />
+    <Content Include="ca-netscience.txt" />
     <Content Include="celegans_edges.txt" />
+    <Content Include="eco-foodweb-baywet.txt" />
     <Content Include="email-Eu-core_normalized.txt" />
     <Content Include="er_dense_normalized.txt" />
     <Content Include="er_sparse_normalized.txt" />
     <Content Include="football.txt" />
     <Content Include="hep-th.txt" />
+    <Content Include="ia-enron-only.txt" />
+    <Content Include="ia-infect-hyper.txt" />
+    <Content Include="ia-primary-school-proximity.txt" />
+    <Content Include="ia-workplace-contacts.txt" />
     <Content Include="lesmis.txt" />
     <Content Include="lfr_like_1_normalized.txt" />
     <Content Include="lfr_like_2_normalized.txt" />
     <Content Include="polbooks_normalized.txt" />
+    <Content Include="sbm_blurry_normalized.txt" />
+    <Content Include="sbm_clear_normalized.txt" />
     <Content Include="soc-dolphins_normalized.txt" />
     <Content Include="ucidata-zachary_normalized.txt" />
   </ItemGroup>
