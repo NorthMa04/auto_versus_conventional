@@ -11,17 +11,32 @@ CONFIG = {
     # 一次性跑多个数据集
     # 你自己通过注释控制，不再检查是否在 DATASETS 里
     "dataset_names": [
-        "lesmis.txt",
-        "football.txt",
+        #"lesmis.txt",
+        #"football.txt",
+        #"arenas-jazz_normalized.txt",
+        #"polbooks_normalized.txt",
+        #"soc-dolphins_normalized.txt",
+        #"ucidata-zachary_normalized.txt",
+        #"ia-primary-school-proximity.txt",
+        #"ia-workplace-contacts.txt",
+        #"ia-enron-only.txt",
+        #"ia-infect-hyper.txt",
+        #"eco-foodweb-baywet.txt",
+        #"ca-netscience.txt",
+        #"adjnoun.txt",
+        # synthetic
+        #"er_dense_normalized.txt",
+        #"er_sparse_normalized.txt",
+        #"lfr_like_1_normalized.txt",
+        #"lfr_like_2_normalized.txt",
+        #"sbm_blurry_normalized.txt",
+        #"sbm_clear_normalized.txt",
         "celegans_edges.txt",
-        # "hep-th.txt",   # 当前先不跑
-        "arenas-jazz_normalized.txt",
-        "eco-foodweb-baywet.txt",
     ],
 
     # k 搜索范围
     "k_min": 2,
-    "k_max": 14,
+    "k_max": 35,
 
     # KMeans 参数
     "k_n_init": 10,
