@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_synthetic_150_hub_modular
+dataset synthetic_150_hub_modular
+method louvain
+n 150
+edges 622
+density 0.055659955257270695
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 5
+modularity_custom 0.7629163455252623
+modularity_louvain_api 0.7629163455252603
+graph_build_time_seconds 0.002554000006057322
+louvain_time_seconds 0.009040500008268282
+time_seconds 0.02336549999017734

@@ -49,7 +49,7 @@ CONFIG = {
         #"CAG_mat72.txt",
         #"ca-sandi_auths.txt",
         #"chesapeake.txt",
-        "eco-florida.txt",
+        #"eco-florida.txt",
         #"eco-mangwet.txt",
         #"econ-wm3.txt",
         #"ENZYMES123.txt",
@@ -59,6 +59,12 @@ CONFIG = {
         #"reptilia-tortoise-network-bsv.txt",
         #"sociopatterns-hypertext.txt",
         #"SW-100-6-0d1-trial2.txt"
+        "synthetic_50_clear_four_blocks.txt",
+        #"synthetic_50_core_periphery_bridge.txt",
+        #"synthetic_100_fuzzy_mixed.txt",
+        #"synthetic_100_hierarchical.txt",
+        #"synthetic_150_hub_modular.txt",
+        #"synthetic_150_ring_bottleneck.txt",
     ],
     # ----- output -----
     "output_root": "wcd_experiments",
@@ -95,8 +101,8 @@ CONFIG = {
     "batch_size_list": [16,32],
 
     # ----- kmeans -----
-    "k_min_list": [4],
-    "k_max_list": [18],
+    "k_min_list": [2],
+    "k_max_list": [9],
     "k_n_init_list": [10],
 
     # ----- device / stability -----
@@ -256,7 +262,7 @@ class SparseAE(nn.Module):
 
 
 def kl_div(rho, rho_hat):
-    eps = 1e-8
+    eps = 1e-7
     rho_hat = torch.clamp(rho_hat, eps, 1 - eps)
     return rho * torch.log(rho / rho_hat) + (1 - rho) * torch.log((1 - rho) / (1 - rho_hat))
 
