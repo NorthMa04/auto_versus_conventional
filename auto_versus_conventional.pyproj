@@ -24,11 +24,13 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="benchmark_wcd_speed.py" />
     <Compile Include="cpu_bench.py" />
     <Compile Include="dataanalysis.py" />
     <Compile Include="gpu_bench.py" />
     <Compile Include="parameters_test_3.py" />
     <Compile Include="parameters_test_5.py" />
+    <Compile Include="pca_dataset_profile.py" />
     <Compile Include="Runner.py" />
     <Compile Include="scripts\convert_football_to_1based.py" />
     <Compile Include="stacked_sparse_version.py" />
@@ -40,11 +42,19 @@
   <ItemGroup>
     <Content Include="advogato_normalized.txt" />
     <Content Include="arenas-jazz_normalized.txt" />
+    <Content Include="brock200-3.txt" />
     <Content Include="CA-GrQc_normalized.txt" />
     <Content Include="ca-netscience.txt" />
+    <Content Include="ca-sandi_auths.txt" />
+    <Content Include="CAG_mat72.txt" />
     <Content Include="celegans_edges.txt" />
+    <Content Include="chesapeake.txt" />
+    <Content Include="eco-florida.txt" />
     <Content Include="eco-foodweb-baywet.txt" />
+    <Content Include="eco-mangwet.txt" />
+    <Content Include="econ-wm3.txt" />
     <Content Include="email-Eu-core_normalized.txt" />
+    <Content Include="ENZYMES123.txt" />
     <Content Include="er_dense_normalized.txt" />
     <Content Include="er_sparse_normalized.txt" />
     <Content Include="football.txt" />
@@ -53,13 +63,20 @@
     <Content Include="ia-infect-hyper.txt" />
     <Content Include="ia-primary-school-proximity.txt" />
     <Content Include="ia-workplace-contacts.txt" />
+    <Content Include="inf-USAir97.txt" />
+    <Content Include="insecta-ant-colony2.txt" />
+    <Content Include="johnson8-4-4.txt" />
     <Content Include="lesmis.txt" />
     <Content Include="lfr_like_1_normalized.txt" />
     <Content Include="lfr_like_2_normalized.txt" />
     <Content Include="polbooks_normalized.txt" />
+    <Content Include="reptilia-tortoise-network-bsv.txt" />
+    <Content Include="road-chesapeake.txt" />
     <Content Include="sbm_blurry_normalized.txt" />
     <Content Include="sbm_clear_normalized.txt" />
     <Content Include="soc-dolphins_normalized.txt" />
+    <Content Include="sociopatterns-hypertext.txt" />
+    <Content Include="SW-100-6-0d1-trial2.txt" />
     <Content Include="ucidata-zachary_normalized.txt" />
   </ItemGroup>
   <ItemGroup>

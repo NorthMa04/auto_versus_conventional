@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_ENZYMES123
+dataset ENZYMES123
+method louvain
+n 90
+edges 127
+density 0.031710362047440696
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 9
+modularity_custom 0.68578337156675
+modularity_louvain_api 0.6857833715667431
+graph_build_time_seconds 0.000865699999849312
+louvain_time_seconds 0.006099199999880511
+time_seconds 0.014507899999443907

@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_chesapeake
+dataset chesapeake
+method louvain
+n 39
+edges 170
+density 0.22941970310391363
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 3
+modularity_custom 0.23660899653979348
+modularity_louvain_api 0.23660899653979237
+graph_build_time_seconds 0.0003848999986075796
+louvain_time_seconds 0.0033856000009109266
+time_seconds 0.009499200001300778

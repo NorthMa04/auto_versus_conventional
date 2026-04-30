@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_ca-sandi_auths
+dataset ca-sandi_auths
+method louvain
+n 86
+edges 124
+density 0.03392612859097127
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 11
+modularity_custom 0.7311265432098727
+modularity_louvain_api 0.7311265432098766
+graph_build_time_seconds 0.0008454000053461641
+louvain_time_seconds 0.005182900000363588
+time_seconds 0.013023100000282284

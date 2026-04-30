@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_CAG_mat72
+dataset CAG_mat72
+method louvain
+n 72
+edges 678
+density 0.2652582159624413
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 3
+modularity_custom 0.4824797231451564
+modularity_louvain_api 0.48247972314515686
+graph_build_time_seconds 0.0010615999999572523
+louvain_time_seconds 0.007946099998662248
+time_seconds 0.017249800002900884

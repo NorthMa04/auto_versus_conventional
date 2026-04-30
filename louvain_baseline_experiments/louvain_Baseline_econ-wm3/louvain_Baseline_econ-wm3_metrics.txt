@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_econ-wm3
+dataset econ-wm3
+method louvain
+n 260
+edges 733
+density 0.021770121770121772
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 33
+modularity_custom 2.5772278390781103
+modularity_louvain_api 0.7433358450682034
+graph_build_time_seconds 0.006088900001486763
+louvain_time_seconds 0.025574599996616598
+time_seconds 0.05484060000162572

@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_eco-florida
+dataset eco-florida
+method louvain
+n 128
+edges 2075
+density 0.2552903543307087
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 4
+modularity_custom 0.36301109856956243
+modularity_louvain_api 0.3630110985695627
+graph_build_time_seconds 0.0033049999983632006
+louvain_time_seconds 0.020286500002839603
+time_seconds 0.03812859999743523

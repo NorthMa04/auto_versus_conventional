@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_eco-mangwet
+dataset eco-mangwet
+method louvain
+n 97
+edges 1446
+density 0.31056701030927836
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 2
+modularity_custom 0.22163615592986582
+modularity_louvain_api 0.22163615592986682
+graph_build_time_seconds 0.002136800001608208
+louvain_time_seconds 0.01580390000162879
+time_seconds 0.03062599999975646

@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_inf-USAir97
+dataset inf-USAir97
+method louvain
+n 332
+edges 2126
+density 0.0386925344884068
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 4
+modularity_custom 0.19716513776695466
+modularity_louvain_api 0.19716513776695457
+graph_build_time_seconds 0.011036800002329983
+louvain_time_seconds 0.04249320000235457
+time_seconds 0.09138620000157971

@@ -28,7 +28,7 @@ CONFIG = {
         #"football.txt",
         #"celegans_edges.txt",
         #"hep-th.txt",   # 当前先不跑
-        "arenas-jazz_normalized.txt",
+        #"arenas-jazz_normalized.txt",
         #"email-Eu-core_normalized.txt",
         #"polbooks_normalized.txt"
         #"soc-dolphins_normalized.txt",
@@ -39,13 +39,28 @@ CONFIG = {
         #"eco-foodweb-baywet.txt"
         #"er_dense_normalized.txt",
         #"er_sparse_normalized.txt",
-        #"ia-enron-only.txt"，
+        #"ia-enron-only.txt"
         #"ia-infect-hyper.txt",
         #"ia-primary-school-proximity.txt",
         #"ia-workplace-contacts.txt"
         #"lfr_like_2_normalized.txt",
         #"sbm_blurry_normalized.txt",
         #"er_dense_normalized.txt",
+        "brock200-3.txt",
+        "CAG_mat72.txt",
+        "ca-sandi_auths.txt",
+        "chesapeake.txt",
+        "eco-florida.txt",
+        "eco-mangwet.txt",
+        "econ-wm3.txt",
+        "ENZYMES123.txt",
+        "inf-USAir97.txt",
+        "insecta-ant-colony2.txt",
+        "johnson8-4-4.txt",
+        "reptilia-tortoise-network-bsv.txt",
+        "road-chesapeake.txt",
+        "sociopatterns-hypertext.txt",
+        "SW-100-6-0d1-trial2.txt"
     ],
     # 待测试的数据集列表。
 

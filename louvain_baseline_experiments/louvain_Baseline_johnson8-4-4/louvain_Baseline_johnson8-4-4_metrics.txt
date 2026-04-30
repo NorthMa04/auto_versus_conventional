@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_johnson8-4-4
+dataset johnson8-4-4
+method louvain
+n 70
+edges 1855
+density 0.7681159420289855
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 5
+modularity_custom 0.03557951482479821
+modularity_louvain_api 0.03557951482479781
+graph_build_time_seconds 0.0021430999986478128
+louvain_time_seconds 0.01737909999792464
+time_seconds 0.02706649999890942

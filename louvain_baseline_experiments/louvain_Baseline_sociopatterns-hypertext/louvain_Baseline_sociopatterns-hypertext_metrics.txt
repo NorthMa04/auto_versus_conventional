@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_sociopatterns-hypertext
+dataset sociopatterns-hypertext
+method louvain
+n 113
+edges 2196
+density 0.3470290771175727
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 9
+modularity_custom 0.5152676720147695
+modularity_louvain_api 0.5152676720147689
+graph_build_time_seconds 0.003197100006218534
+louvain_time_seconds 0.024825799999234732
+time_seconds 0.03766239999822574

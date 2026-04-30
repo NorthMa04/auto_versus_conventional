@@ -27,8 +27,8 @@ CONFIG = {
     "input_paths": [
         #"lesmis.txt",
         #"football.txt",
-        "arenas-jazz_normalized.txt",
-        "polbooks_normalized.txt",
+        #"arenas-jazz_normalized.txt",
+        #"polbooks_normalized.txt",
         #"soc-dolphins_normalized.txt",
         #"ucidata-zachary_normalized.txt",
         #"ia-primary-school-proximity.txt",
@@ -45,6 +45,20 @@ CONFIG = {
         #"lfr_like_2_normalized.txt",
         #"sbm_blurry_normalized.txt",
         #"sbm_clear_normalized.txt"
+        #"brock200-3.txt",
+        #"CAG_mat72.txt",
+        #"ca-sandi_auths.txt",
+        #"chesapeake.txt",
+        "eco-florida.txt",
+        #"eco-mangwet.txt",
+        #"econ-wm3.txt",
+        #"ENZYMES123.txt",
+        #"inf-USAir97.txt",
+        #"insecta-ant-colony2.txt",
+        #"johnson8-4-4.txt",
+        #"reptilia-tortoise-network-bsv.txt",
+        #"sociopatterns-hypertext.txt",
+        #"SW-100-6-0d1-trial2.txt"
     ],
     # ----- output -----
     "output_root": "wcd_experiments",

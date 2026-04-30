@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_brock200-3
+dataset brock200-3
+method louvain
+n 200
+edges 12048
+density 0.605427135678392
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 6
+modularity_custom 0.04073588131427447
+modularity_louvain_api 0.04073588131427366
+graph_build_time_seconds 0.03294589999859454
+louvain_time_seconds 0.15090970000164816
+time_seconds 0.25230040000315057

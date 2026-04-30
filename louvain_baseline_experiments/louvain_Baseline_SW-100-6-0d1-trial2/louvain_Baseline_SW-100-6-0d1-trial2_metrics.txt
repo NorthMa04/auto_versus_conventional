@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_SW-100-6-0d1-trial2
+dataset SW-100-6-0d1-trial2
+method louvain
+n 100
+edges 300
+density 0.06060606060606061
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 7
+modularity_custom 0.6448833333333298
+modularity_louvain_api 0.6448833333333333
+graph_build_time_seconds 0.0011769999982789159
+louvain_time_seconds 0.008294500003103167
+time_seconds 0.017500300004030578

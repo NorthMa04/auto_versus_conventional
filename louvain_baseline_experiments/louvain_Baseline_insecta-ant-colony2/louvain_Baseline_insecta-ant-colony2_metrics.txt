@@ -1,0 +1,16 @@
+experiment_tag louvain_Baseline
+run_name louvain_Baseline_insecta-ant-colony2
+dataset insecta-ant-colony2
+method louvain
+n 131
+edges 8437
+density 0.9908396946564886
+seed 0
+resolution 1.0
+weight_key weight
+num_communities 2
+modularity_custom 0.24471107213406784
+modularity_louvain_api 0.2447110721340677
+graph_build_time_seconds 0.008374900004127994
+louvain_time_seconds 0.055319999999483116
+time_seconds 0.08364119999896502

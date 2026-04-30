@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.cluster import KMeans
 
 import pandas as pd
-
+import traceback
 
 # =========================
 # 全部配置统一放在这里
@@ -25,18 +25,29 @@ CONFIG = {
 
     # ----- datasets -----
     "input_paths": [
-        #"football.txt",
         #"lesmis.txt",
-        # "celegans_edges.txt",
-        # "hep-th.txt",
+        #"football.txt",
         #"arenas-jazz_normalized.txt",
         #"polbooks_normalized.txt",
+        #"soc-dolphins_normalized.txt",
+        #"ucidata-zachary_normalized.txt",
+        #"ia-primary-school-proximity.txt",
+        #"ia-workplace-contacts.txt",
+        #"ia-enron-only.txt",
+        #"ia-infect-hyper.txt",
+        #"eco-foodweb-baywet.txt",
         #"ca-netscience.txt",
-        #"adjnoun.txt"
-        "ia-enron-only.txt"
-
+        #"adjnoun.txt",
+        # synthetic
+        #"er_dense_normalized.txt",
+        #"er_sparse_normalized.txt",
+        #"lfr_like_1_normalized.txt",
+        #"lfr_like_2_normalized.txt",
+        #"sbm_blurry_normalized.txt",
+        #"sbm_clear_normalized.txt",
+        #"celegans_edges.txt",
+        "ca-netscience.txt",
     ],
-
     # ----- output -----
     "output_root": "wcd_experiments",
 
@@ -48,32 +59,32 @@ CONFIG = {
     # =========================================================
 
     # ----- fine search 1: alpha -----
-    "alpha_list": [0.5],
+    "alpha_list": [0.1,0.3,0.5,0.7,0.9],
     # beta 自动取 1 - alpha
 
     # ----- fine search 2: compression layers -----
     # 注意：代码里实际训练层数是 T - 1
-    "T_list": [6],
+    "T_list": [6,8,10],
 
     # ----- fine search 3: sparse penalty -----
-    "lam_sparse_list": [0.00033],
+    "lam_sparse_list": [0.0001,0.00033,0.00066,0.01],
 
     # ----- coarse search 1: hidden size -----
-    "h_list": [32],
+    "h_list": [16,32,48],
 
     # ----- coarse search 2: rho -----
     "rho_list": [0.05],
 
     # ----- coarse search 3: learning rate -----
-    "lr_list": [00.02],
+    "lr_list": [0.01,0.02],
 
     # ----- training params -----
     "epochs_list": [600],
-    "batch_size_list": [128],
+    "batch_size_list": [16,32],
 
     # ----- kmeans -----
-    "k_min_list": [2],
-    "k_max_list": [14],
+    "k_min_list": [10],
+    "k_max_list": [34],
     "k_n_init_list": [10],
 
     # ----- device / stability -----
@@ -232,11 +243,11 @@ class SparseAE(nn.Module):
         return x_hat, h
 
 
-def kl_div(rho, rho_hat):
-    eps = 1e-8
-    rho_hat = torch.clamp(rho_hat, eps, 1 - eps)
-    return rho * torch.log(rho / rho_hat) + (1 - rho) * torch.log((1 - rho) / (1 - rho_hat))
-
+def kl_div(rho, rho_hat, eps=1e-6):
+    rho_hat = torch.clamp(rho_hat, eps, 1.0 - eps)
+    rho = torch.as_tensor(rho, dtype=rho_hat.dtype, device=rho_hat.device)
+    rho = torch.clamp(rho, eps, 1.0 - eps)
+    return rho * torch.log(rho / rho_hat) + (1.0 - rho) * torch.log((1.0 - rho) / (1.0 - rho_hat))
 
 # =========================
 # 单层训练（不改原始逻辑）
@@ -247,6 +258,14 @@ def train_one_layer(
     rho=0.05, lam_sparse=1e-4, layer_index=1
 ):
     d_in, n = X.shape
+
+    # 先检查输入
+    if not check_numpy_finite(f"Layer{layer_index}-input-X", X):
+        raise ValueError(f"[Layer {layer_index}] input X contains NaN/Inf")
+    if not check_numpy_finite(f"Layer{layer_index}-input-Q", Q):
+        raise ValueError(f"[Layer {layer_index}] input Q contains NaN/Inf")
+    if not check_numpy_finite(f"Layer{layer_index}-input-Z", Z):
+        raise ValueError(f"[Layer {layer_index}] input Z contains NaN/Inf")
 
     Xc = torch.tensor(X.T, dtype=torch.float32, device=device)
     Qc = torch.tensor(Q.T, dtype=torch.float32, device=device)
@@ -264,14 +283,52 @@ def train_one_layer(
     mse = nn.MSELoss()
 
     for epoch in range(epochs):
-        for (batch,) in loader:
+        for batch_idx, (batch,) in enumerate(loader):
+            if not torch.isfinite(batch).all():
+                raise ValueError(f"[Layer {layer_index}] epoch {epoch+1}, batch {batch_idx}: batch contains NaN/Inf")
+
             x_hat, h = ae(batch)
+
+            if not torch.isfinite(h).all():
+                check_torch_finite(f"Layer{layer_index}-epoch{epoch+1}-h", h)
+                raise ValueError(f"[Layer {layer_index}] epoch {epoch+1}, batch {batch_idx}: hidden h contains NaN/Inf")
+
+            if not torch.isfinite(x_hat).all():
+                check_torch_finite(f"Layer{layer_index}-epoch{epoch+1}-x_hat", x_hat)
+                raise ValueError(f"[Layer {layer_index}] epoch {epoch+1}, batch {batch_idx}: reconstruction x_hat contains NaN/Inf")
+
             recon_loss = mse(x_hat, batch)
-            kl_term = kl_div(rho, h.mean(0)).sum()
+            rho_hat = h.mean(0)
+            kl_term = kl_div(rho, rho_hat).sum()
             total_loss = recon_loss + lam_sparse * kl_term
+
+            if not torch.isfinite(recon_loss):
+                print(f"[BAD] Layer {layer_index}, epoch {epoch+1}, batch {batch_idx}: recon_loss={recon_loss}")
+                raise ValueError(f"[Layer {layer_index}] recon_loss is NaN/Inf")
+
+            if not torch.isfinite(kl_term):
+                check_torch_finite(f"Layer{layer_index}-epoch{epoch+1}-rho_hat", rho_hat)
+                print(f"[BAD] Layer {layer_index}, epoch {epoch+1}, batch {batch_idx}: kl_term={kl_term}")
+                raise ValueError(f"[Layer {layer_index}] kl_term is NaN/Inf")
+
+            if not torch.isfinite(total_loss):
+                print(f"[BAD] Layer {layer_index}, epoch {epoch+1}, batch {batch_idx}: "
+                      f"recon_loss={recon_loss.item()}, kl_term={kl_term.item()}, total_loss={total_loss}")
+                raise ValueError(f"[Layer {layer_index}] total_loss is NaN/Inf")
 
             opt.zero_grad()
             total_loss.backward()
+
+            # 梯度检查
+            bad_grad = False
+            for name, p in ae.named_parameters():
+                if p.grad is not None and (torch.isnan(p.grad).any() or torch.isinf(p.grad).any()):
+                    print(f"[BAD GRAD] Layer {layer_index}, epoch {epoch+1}, batch {batch_idx}, param={name}")
+                    bad_grad = True
+                    break
+            if bad_grad:
+                raise ValueError(f"[Layer {layer_index}] gradient contains NaN/Inf")
+
             opt.step()
 
         if CONFIG["print_every_epoch"] and ((epoch + 1) % 50 == 0 or epoch == 0):
@@ -285,6 +342,13 @@ def train_one_layer(
         HX_np = HX.T.detach().cpu().numpy()
         HQ_np = HQ.T.detach().cpu().numpy()
         HZ_np = HZ.T.detach().cpu().numpy()
+
+    ok1 = check_numpy_finite(f"Layer{layer_index}-output-HX", HX_np)
+    ok2 = check_numpy_finite(f"Layer{layer_index}-output-HQ", HQ_np)
+    ok3 = check_numpy_finite(f"Layer{layer_index}-output-HZ", HZ_np)
+
+    if not (ok1 and ok2 and ok3):
+        raise ValueError(f"[Layer {layer_index}] output HX/HQ/HZ contains NaN/Inf")
 
     del Xc, Qc, Zc, train_data, loader
     cleanup_memory()
@@ -339,7 +403,23 @@ def prepare_dataset(input_path: Path):
         "X_cache": {},
     }
 
+def check_numpy_finite(name, arr):
+    has_nan = np.isnan(arr).any()
+    has_inf = np.isinf(arr).any()
+    arr_min = np.nanmin(arr) if arr.size > 0 else None
+    arr_max = np.nanmax(arr) if arr.size > 0 else None
+    print(f"[CHECK] {name}: shape={arr.shape}, nan={has_nan}, inf={has_inf}, min={arr_min}, max={arr_max}")
+    return (not has_nan) and (not has_inf)
 
+
+def check_torch_finite(name, tensor):
+    has_nan = torch.isnan(tensor).any().item()
+    has_inf = torch.isinf(tensor).any().item()
+    safe_tensor = torch.nan_to_num(tensor, nan=0.0, posinf=0.0, neginf=0.0)
+    arr_min = safe_tensor.min().item()
+    arr_max = safe_tensor.max().item()
+    print(f"[CHECK] {name}: shape={tuple(tensor.shape)}, nan={has_nan}, inf={has_inf}, min={arr_min}, max={arr_max}")
+    return (not has_nan) and (not has_inf)
 # =========================
 # 单组参数实验
 # =========================
@@ -381,102 +461,153 @@ def run_single_experiment(
         f"k_range=[{k_min},{k_max}], k_n_init={k_n_init}"
     )
 
-    # ---------- 计算 X（Qm 和 Z 已预计算） ----------
-    if alpha not in prepared["X_cache"]:
-        X = compute_X(W, A, alpha=alpha, beta=beta)
-        X = minmax_01(X)
-        prepared["X_cache"][alpha] = X
-    else:
-        X = prepared["X_cache"][alpha]
-    # ---------- 深度稀疏自编码器堆叠训练 ----------
-    encoders = []
-    X_t, Q_t, Z_t = X, Qm, Z
-
-    for layer in range(T - 1):
-        print(f"   -> training layer {layer + 1}/{T - 1}")
-        HX, HQ, HZ, ae = train_one_layer(
-            X_t, Q_t, Z_t,
-            d_h=h,
-            device=device,
-            epochs=epochs,
-            batch_size=batch_size,
-            lr=lr,
-            rho=rho,
-            lam_sparse=lam_sparse,
-            layer_index=layer + 1,
-        )
-        encoders.append(ae)
-        X_t, Q_t, Z_t = HX, HQ, HZ
-
-        del HX, HQ, HZ
-        cleanup_memory()
-
-    # ---------- 最终特征提取 ----------
-    H = X.T
-    H_tensor = None
     try:
-        for ae in encoders:
-            ae.eval()
-            ae.to(device)
-            H_tensor = torch.tensor(H, dtype=torch.float32, device=device)
-            with torch.no_grad():
-                _, H_hidden = ae(H_tensor)
-            H = H_hidden.detach().cpu().numpy()
+        # ---------- 计算 X ----------
+        if alpha not in prepared["X_cache"]:
+            X = compute_X(W, A, alpha=alpha, beta=beta)
+            X = minmax_01(X)
+            prepared["X_cache"][alpha] = X
+        else:
+            X = prepared["X_cache"][alpha]
 
-            del H_tensor, H_hidden
-            ae.to("cpu")
+        check_numpy_finite("Initial-X", X)
+        check_numpy_finite("Initial-Qm", Qm)
+        check_numpy_finite("Initial-Z", Z)
+
+        # ---------- 深度稀疏自编码器堆叠训练 ----------
+        encoders = []
+        X_t, Q_t, Z_t = X, Qm, Z
+
+        for layer in range(T - 1):
+            print(f"   -> training layer {layer + 1}/{T - 1}")
+
+            HX, HQ, HZ, ae = train_one_layer(
+                X_t, Q_t, Z_t,
+                d_h=h,
+                device=device,
+                epochs=epochs,
+                batch_size=batch_size,
+                lr=lr,
+                rho=rho,
+                lam_sparse=lam_sparse,
+                layer_index=layer + 1,
+            )
+            encoders.append(ae)
+            X_t, Q_t, Z_t = HX, HQ, HZ
+
+            del HX, HQ, HZ
             cleanup_memory()
-            H_tensor = None
-    finally:
-        if H_tensor is not None:
-            del H_tensor
+
+        # ---------- 最终特征提取 ----------
+        H = X.T
+        check_numpy_finite("Before-final-encoding-H", H)
+
+        H_tensor = None
+        try:
+            for i, ae in enumerate(encoders, start=1):
+                ae.eval()
+                ae.to(device)
+                H_tensor = torch.tensor(H, dtype=torch.float32, device=device)
+
+                if not torch.isfinite(H_tensor).all():
+                    raise ValueError(f"[Final Encoding] input H_tensor becomes NaN/Inf before encoder {i}")
+
+                with torch.no_grad():
+                    _, H_hidden = ae(H_tensor)
+
+                if not torch.isfinite(H_hidden).all():
+                    check_torch_finite(f"Final-encoder-{i}-output", H_hidden)
+                    raise ValueError(f"[Final Encoding] encoder {i} output H_hidden contains NaN/Inf")
+
+                H = H_hidden.detach().cpu().numpy()
+                check_numpy_finite(f"After-final-encoder-{i}-H", H)
+
+                del H_tensor, H_hidden
+                ae.to("cpu")
+                cleanup_memory()
+                H_tensor = None
+        finally:
+            if H_tensor is not None:
+                del H_tensor
+            cleanup_memory()
+
+        # ---------- K-means 聚类 ----------
+        if not check_numpy_finite("Before-KMeans-H", H):
+            raise ValueError("[KMeans Input] H contains NaN/Inf")
+
+        best_Q, best_k = -1e18, None
+        for k in range(k_min, k_max + 1):
+            kmeans = KMeans(
+                n_clusters=k,
+                n_init=k_n_init,
+                random_state=CONFIG["seed"]
+            )
+            labels = kmeans.fit_predict(H)
+            Qv = modularity_score(W, labels)
+            if Qv > best_Q:
+                best_Q, best_k = float(Qv), int(k)
+
+        elapsed = time.perf_counter() - start_time
+
+        del X, X_t, Q_t, Z_t, H, encoders
         cleanup_memory()
 
-    # ---------- K-means 聚类 ----------
-    best_Q, best_k = -1e18, None
-    for k in range(k_min, k_max + 1):
-        kmeans = KMeans(
-            n_clusters=k,
-            n_init=k_n_init,
-            random_state=CONFIG["seed"]
+        print(
+            f"   -> done | best_k={best_k}, modularity={best_Q:.6f}, "
+            f"time={elapsed:.2f}s"
         )
-        labels = kmeans.fit_predict(H)
-        Qv = modularity_score(W, labels)
-        if Qv > best_Q:
-            best_Q, best_k = float(Qv), int(k)
 
-    elapsed = time.perf_counter() - start_time
+        return {
+            "run_name": run_name,
+            "dataset": dataset_name,
+            "alpha": alpha,
+            "beta": beta,
+            "T": T,
+            "h": h,
+            "rho": rho,
+            "lr": lr,
+            "lam_sparse": lam_sparse,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "k_min": k_min,
+            "k_max": k_max,
+            "k_n_init": k_n_init,
+            "best_k": best_k,
+            "modularity": best_Q,
+            "time_seconds": elapsed,
+            "status": "ok",
+            "error_msg": "",
+        }
 
-    # ---------- 清理 ----------
-    del X, X_t, Q_t, Z_t, H, encoders
-    cleanup_memory()
+    except Exception as e:
+        elapsed = time.perf_counter() - start_time
+        err = f"{type(e).__name__}: {str(e)}"
+        print(f"   -> FAILED | {err}")
+        traceback.print_exc()
 
-    print(
-        f"   -> done | best_k={best_k}, modularity={best_Q:.6f}, "
-        f"time={elapsed:.2f}s"
-    )
+        cleanup_memory()
 
-    return {
-        "run_name": run_name,
-        "dataset": dataset_name,
-        "alpha": alpha,
-        "beta": beta,
-        "T": T,
-        "h": h,
-        "rho": rho,
-        "lr": lr,
-        "lam_sparse": lam_sparse,
-        "epochs": epochs,
-        "batch_size": batch_size,
-        "k_min": k_min,
-        "k_max": k_max,
-        "k_n_init": k_n_init,
-        "best_k": best_k,
-        "modularity": best_Q,
-        "time_seconds": elapsed,
-    }
-
-
+        return {
+            "run_name": run_name,
+            "dataset": dataset_name,
+            "alpha": alpha,
+            "beta": beta,
+            "T": T,
+            "h": h,
+            "rho": rho,
+            "lr": lr,
+            "lam_sparse": lam_sparse,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "k_min": k_min,
+            "k_max": k_max,
+            "k_n_init": k_n_init,
+            "best_k": None,
+            "modularity": None,
+            "time_seconds": elapsed,
+            "status": "failed",
+            "error_msg": err,
+        }
 # =========================
 # 主程序：联调
 # =========================
