@@ -25,6 +25,7 @@ CONFIG = {
 
     # ----- datasets -----
     "input_paths": [
+        #"celegans_edges.txt",
         #"lesmis.txt",
         #"football.txt",
         #"arenas-jazz_normalized.txt",
@@ -59,7 +60,7 @@ CONFIG = {
         #"reptilia-tortoise-network-bsv.txt",
         #"sociopatterns-hypertext.txt",
         #"SW-100-6-0d1-trial2.txt"
-        "synthetic_50_clear_four_blocks.txt",
+        #"synthetic_50_clear_four_blocks.txt",
         #"synthetic_50_core_periphery_bridge.txt",
         #"synthetic_100_fuzzy_mixed.txt",
         #"synthetic_100_hierarchical.txt",

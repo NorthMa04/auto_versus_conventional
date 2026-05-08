@@ -36,7 +36,47 @@ OUTPUT_DIR_NAME = "score_results"   # 输出文件夹名，会自动创建
 # 例如：DATASET_NAMES = ["brock200-3", "arenas-jazz_normalized", "football"]
 # 留空 [] 则自动处理 ROOT_DIR 下所有匹配 PATTERN 的文件。
 DATASET_NAMES: list[str] = [
-    "lesmis",
+        #"celegans_edges.txt",
+        #"lesmis.txt",
+        #"football.txt",
+        #"arenas-jazz_normalized.txt",
+        #"polbooks_normalized.txt",
+        #"soc-dolphins_normalized.txt",
+        #"ucidata-zachary_normalized.txt",
+        #"ia-primary-school-proximity.txt",
+        #"ia-workplace-contacts.txt",
+        #"ia-enron-only.txt",
+        #"ia-infect-hyper.txt",
+        #"eco-foodweb-baywet.txt",
+        #"ca-netscience.txt",
+        #"adjnoun.txt",
+        # synthetic
+        #"er_dense_normalized.txt",
+        #"er_sparse_normalized.txt",
+        #"lfr_like_1_normalized.txt",
+        #"lfr_like_2_normalized.txt",
+        #"sbm_blurry_normalized.txt",
+        #"sbm_clear_normalized.txt"
+        #"brock200-3.txt",
+        #"CAG_mat72.txt",
+        #"ca-sandi_auths.txt",
+        #"chesapeake.txt",
+        #"eco-florida.txt",
+        #"eco-mangwet.txt",
+        #"econ-wm3.txt",
+        #"ENZYMES123.txt",
+        #"inf-USAir97.txt",
+        #"insecta-ant-colony2.txt",
+        #"johnson8-4-4.txt",
+        #"reptilia-tortoise-network-bsv.txt",
+        #"sociopatterns-hypertext.txt",
+        #"SW-100-6-0d1-trial2.txt"
+        #"synthetic_50_clear_four_blocks.txt",
+        #"synthetic_50_core_periphery_bridge.txt",
+        #"synthetic_100_fuzzy_mixed.txt",
+        #"synthetic_100_hierarchical.txt",
+        #"synthetic_150_hub_modular.txt",
+        #"synthetic_150_ring_bottleneck.txt",
 ]
 
 # 输入文件命名规则：full_param_grid_<dataset>_summary.xlsx
