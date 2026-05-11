@@ -1,0 +1,2 @@
+﻿test_dataset,train_rows,test_rows,pred_mae,pred_rmse,pred_r2,pred_spearman
+football,25920,720,0.5589700655356088,0.6858781930757131,0.2965857299381339,0.5926693192986485

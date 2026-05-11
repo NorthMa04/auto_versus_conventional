@@ -29,54 +29,54 @@ import pandas as pd
 # ============================================================
 # 你最常改的配置区
 # ============================================================
-ROOT_DIR = "."                      # 根目录，结果文件和输出文件夹都在这里
-OUTPUT_DIR_NAME = "score_results"   # 输出文件夹名，会自动创建
+ROOT_DIR = "."                         # 工程根目录
+INPUT_DIR_NAME = "fuckingresults"      # 输入 xlsx 所在文件夹
+OUTPUT_DIR_NAME = "score_results"      # 输出文件夹，仍然在根目录下
 
 # 显式指定要处理的数据集名称。
 # 例如：DATASET_NAMES = ["brock200-3", "arenas-jazz_normalized", "football"]
 # 留空 [] 则自动处理 ROOT_DIR 下所有匹配 PATTERN 的文件。
 DATASET_NAMES: list[str] = [
-        #"celegans_edges.txt",
-        #"lesmis.txt",
-        #"football.txt",
-        #"arenas-jazz_normalized.txt",
-        #"polbooks_normalized.txt",
-        #"soc-dolphins_normalized.txt",
-        #"ucidata-zachary_normalized.txt",
-        #"ia-primary-school-proximity.txt",
-        #"ia-workplace-contacts.txt",
-        #"ia-enron-only.txt",
-        #"ia-infect-hyper.txt",
-        #"eco-foodweb-baywet.txt",
-        #"ca-netscience.txt",
-        #"adjnoun.txt",
-        # synthetic
-        #"er_dense_normalized.txt",
-        #"er_sparse_normalized.txt",
-        #"lfr_like_1_normalized.txt",
-        #"lfr_like_2_normalized.txt",
-        #"sbm_blurry_normalized.txt",
-        #"sbm_clear_normalized.txt"
-        #"brock200-3.txt",
-        #"CAG_mat72.txt",
-        #"ca-sandi_auths.txt",
-        #"chesapeake.txt",
-        #"eco-florida.txt",
-        #"eco-mangwet.txt",
-        #"econ-wm3.txt",
-        #"ENZYMES123.txt",
-        #"inf-USAir97.txt",
-        #"insecta-ant-colony2.txt",
-        #"johnson8-4-4.txt",
-        #"reptilia-tortoise-network-bsv.txt",
-        #"sociopatterns-hypertext.txt",
-        #"SW-100-6-0d1-trial2.txt"
-        #"synthetic_50_clear_four_blocks.txt",
-        #"synthetic_50_core_periphery_bridge.txt",
-        #"synthetic_100_fuzzy_mixed.txt",
-        #"synthetic_100_hierarchical.txt",
-        #"synthetic_150_hub_modular.txt",
-        #"synthetic_150_ring_bottleneck.txt",
+        "celegans_edges",
+        "lesmis",
+        "football",
+        "arenas-jazz_normalized",
+        "polbooks_normalized",
+        "soc-dolphins_normalized",
+        "ucidata-zachary_normalized",
+        "ia-primary-school-proximity",
+        "ia-workplace-contacts",
+        "ia-enron-only",
+        "ia-infect-hyper",
+        "eco-foodweb-baywet",
+        "ca-netscience",
+        "adjnoun",
+        "er_dense_normalized",
+        "er_sparse_normalized",
+        "lfr_like_1_normalized",
+        "lfr_like_2_normalized",
+        "sbm_blurry_normalized",
+        "sbm_clear_normalized",
+        "brock200-3",
+        "CAG_mat72",
+        "ca-sandi_auths",
+        "chesapeake",
+        "eco-florida",
+        "eco-mangwet",
+        #"econ-wm3",
+        "ENZYMES123",
+        #"inf-USAir97",
+        "insecta-ant-colony2",
+        "johnson8-4-4",
+        "reptilia-tortoise-network-bsv",
+        "sociopatterns-hypertext",
+        "SW-100-6-0d1-trial2",
+        "synthetic_50_clear_four_blocks",
+        "synthetic_50_core_periphery_bridge",
+        "synthetic_100_fuzzy_mixed",
+        "synthetic_100_hierarchical",
+        "synthetic_150_hub_modular",
+        #"synthetic_150_ring_bottleneck",
 ]
 
 # 输入文件命名规则：full_param_grid_<dataset>_summary.xlsx
@@ -272,18 +272,20 @@ def score_one_file(
     }
 
 
-def resolve_input_files(root: Path, dataset_names: Iterable[str]) -> list[Path]:
+def resolve_input_files(input_dir: Path, dataset_names: Iterable[str]) -> list[Path]:
     """根据 DATASET_NAMES 或自动 glob 获取输入文件列表。"""
     names = [x.strip() for x in dataset_names if str(x).strip()]
+
     if names:
-        files = [root / PATTERN.format(dataset=name) for name in names]
+        files = [input_dir / PATTERN.format(dataset=name) for name in names]
     else:
-        files = sorted(root.glob(AUTO_GLOB))
+        files = sorted(input_dir.glob(AUTO_GLOB))
 
     missing = [p for p in files if not p.exists()]
     if missing:
         msg = "\n".join(str(p) for p in missing)
         raise FileNotFoundError(f"以下输入文件不存在：\n{msg}")
+
     return files
 
 
@@ -308,7 +310,12 @@ def main() -> None:
     args = parse_args()
 
     root = Path(args.root).resolve()
+    input_dir = root / INPUT_DIR_NAME
     output_dir = root / args.output_dir
+
+    if not input_dir.exists():
+        raise FileNotFoundError(f"找不到输入文件夹：{input_dir}")
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if args.datasets is not None:
@@ -325,8 +332,9 @@ def main() -> None:
     else:
         sheet_name = args.sheet
 
-    files = resolve_input_files(root, dataset_names)
+    files = resolve_input_files(input_dir, dataset_names)
     print(f"Root: {root}")
+    print(f"Input dir: {input_dir}")
     print(f"Output dir: {output_dir}")
     print(f"Files to process: {len(files)}")
 

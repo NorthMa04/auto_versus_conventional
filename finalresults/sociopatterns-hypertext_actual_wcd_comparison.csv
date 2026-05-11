@@ -1,0 +1,7 @@
+﻿selection_type,risk_index,pred_score,pred_score_norm,stability_score,final_select_score,consensus_match_count,pred_rank_desc,true_score_in_grid,dataset,alpha,beta,T,h,rho,lr,lam_sparse,batch_size,epochs,k_min,k_max,k_n_init,best_k,modularity,time_seconds
+recommended_risk_controlled,0.5,0.815964996,1,0.875,0.9375,7,1,0.993327611,sociopatterns-hypertext,0.9,0.1,8,48,0.05,0.01,0.00066,32,600,2,16,10,4,0.373190695,230.4878881
+random_1,,0.411257468,,,,,82,-0.666981082,sociopatterns-hypertext,0.7,0.3,10,48,0.05,0.02,0.00066,32,600,2,16,10,5,0.215093881,288.8656158
+random_2,,-0.2368905,,,,,525,-0.054188868,sociopatterns-hypertext,0.1,0.9,6,32,0.05,0.01,0.00066,16,600,2,16,10,9,0.196620814,317.6901423
+random_3,,-0.110652793,,,,,401,0.883045368,sociopatterns-hypertext,0.5,0.5,10,32,0.05,0.01,0.00066,32,600,2,16,10,10,0.170669943,297.4155569
+random_4,,0.173367268,,,,,193,0.819657181,sociopatterns-hypertext,0.3,0.7,10,32,0.05,0.01,0.0001,32,600,2,16,10,6,0.203233315,291.1627578
+random_5,,-0.030101349,,,,,333,-0.969388929,sociopatterns-hypertext,0.1,0.9,10,16,0.05,0.02,0.00033,32,600,2,16,10,11,0.114847148,294.2695161

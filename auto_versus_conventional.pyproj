@@ -32,7 +32,10 @@
     <Compile Include="parameters_test_3.py" />
     <Compile Include="parameters_test_5.py" />
     <Compile Include="pca_dataset_profile.py" />
+    <Compile Include="plot_representative_dataset_cases.py" />
+    <Compile Include="plot_selected_rf_results.py" />
     <Compile Include="result_minimax.py" />
+    <Compile Include="rf_recommend_and_test_wcd.py" />
     <Compile Include="Runner.py" />
     <Compile Include="scripts\convert_football_to_1based.py" />
     <Compile Include="stacked_sparse_version.py" />
@@ -40,6 +43,7 @@
     <Compile Include="Test_upon_network X.py" />
     <Compile Include="wcd_adaptive_time.py" />
     <Compile Include="wcd_fixed_time.py" />
+    <Compile Include="xlsxmerge&amp;&amp;copy.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="arenas-jazz_normalized.txt" />

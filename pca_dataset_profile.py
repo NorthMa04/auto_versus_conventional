@@ -31,22 +31,31 @@ CONFIG = {
     "input_csv": "dataset_profile.csv",
     "output_dir": "pca_results",
 
-    # 主成分个数：
-    # None -> 自动取 min(样本数, 特征数)
-    # 也可以改成固定整数，比如 5
     "n_components": None,
 
-    # 是否删除方差几乎为 0 的列
     "drop_low_variance": True,
     "low_variance_threshold": 1e-12,
 
-    # 是否在图上标注数据集名称
+    # 图像设置
     "annotate_points": True,
+    "dpi": 300,
 
-    # 画图 DPI
-    "dpi": 180,
+    # 新增：PCA 散点图美化设置
+    # label_mode:
+    #   "outliers" 只标注离群点，推荐论文正文使用
+    #   "all"      标注所有点，适合检查
+    #   "none"     不标注
+    "label_mode": "outliers",
+
+    # 标注 PC1-PC2 平面中距离中心最远的若干个点
+    "top_label_count": 10,
+
+    # 是否去掉数据集名末尾的 .txt
+    "remove_txt_suffix": True,
+
+    # 是否额外保存 PDF，适合插入 Word 后保持清晰
+    "save_pdf": True,
 }
-
 
 def ensure_output_dir(path_str: str) -> Path:
     out_dir = Path(path_str)
@@ -174,26 +183,204 @@ def plot_cumulative_variance(evr_df: pd.DataFrame, out_path: Path, dpi=180):
     plt.savefig(out_path, dpi=dpi)
     plt.close()
 
+def beautify_dataset_name(name: str, remove_txt_suffix: bool = True) -> str:
+    """
+    美化数据集名称：
+    1. 去掉 .txt 后缀；
+    2. 名称太长时适当截断，避免图中标签过长。
+    """
+    name = str(name)
 
-def plot_pc1_pc2(scores_with_name: pd.DataFrame, out_path: Path, annotate=True, dpi=180):
+    if remove_txt_suffix and name.endswith(".txt"):
+        name = name[:-4]
+
+    max_len = 28
+    if len(name) > max_len:
+        name = name[:max_len - 3] + "..."
+
+    return name
+
+
+def choose_labels_for_scatter(
+    scores_with_name: pd.DataFrame,
+    label_mode: str = "outliers",
+    top_label_count: int = 10,
+) -> pd.Series:
+    """
+    决定哪些点需要标注。
+
+    outliers 模式：
+    计算每个点到 PC1-PC2 平面中心的距离，只标注距离最大的若干个点。
+    """
+    if label_mode == "none":
+        return pd.Series(False, index=scores_with_name.index)
+
+    if label_mode == "all":
+        return pd.Series(True, index=scores_with_name.index)
+
+    if label_mode == "outliers":
+        pc1 = scores_with_name["PC1"]
+        pc2 = scores_with_name["PC2"]
+
+        center_pc1 = pc1.median()
+        center_pc2 = pc2.median()
+
+        dist = np.sqrt((pc1 - center_pc1) ** 2 + (pc2 - center_pc2) ** 2)
+        label_indices = dist.sort_values(ascending=False).head(top_label_count).index
+
+        mask = pd.Series(False, index=scores_with_name.index)
+        mask.loc[label_indices] = True
+        return mask
+
+    raise ValueError(f"未知 label_mode: {label_mode}")
+def plot_pc1_pc2(
+    scores_with_name: pd.DataFrame,
+    out_path: Path,
+    annotate=True,
+    dpi=300,
+    label_mode="outliers",
+    top_label_count=10,
+    remove_txt_suffix=True,
+    save_pdf=True,
+):
+    """
+    绘制 PC1-PC2 散点图。
+
+    改进点：
+    1. 默认只标注离群点，避免文字重叠；
+    2. 使用更适合论文的尺寸、字体和网格；
+    3. 去掉 .txt 后缀；
+    4. 同时保存 PNG 和 PDF；
+    5. 对中心密集点保持低干扰显示。
+    """
     if "PC1" not in scores_with_name.columns or "PC2" not in scores_with_name.columns:
         return
 
-    plt.figure(figsize=(8, 6))
-    plt.scatter(scores_with_name["PC1"], scores_with_name["PC2"])
+    df_plot = scores_with_name.copy()
 
+    # 基础绘图风格
+    plt.rcParams.update({
+        "font.family": "Times New Roman",
+        "font.size": 11,
+        "axes.titlesize": 15,
+        "axes.labelsize": 13,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+        "legend.fontsize": 10,
+        "figure.dpi": dpi,
+        "savefig.dpi": dpi,
+        "axes.unicode_minus": False,
+    })
+
+    fig, ax = plt.subplots(figsize=(8.2, 4.1))
+
+    pc1 = df_plot["PC1"]
+    pc2 = df_plot["PC2"]
+
+    # 根据到中心的距离区分普通点和离群点
+    center_pc1 = pc1.median()
+    center_pc2 = pc2.median()
+    dist = np.sqrt((pc1 - center_pc1) ** 2 + (pc2 - center_pc2) ** 2)
+
+    outlier_threshold = dist.quantile(0.85)
+    is_outlier = dist >= outlier_threshold
+
+    # 普通点
+    ax.scatter(
+        pc1[~is_outlier],
+        pc2[~is_outlier],
+        s=42,
+        alpha=0.72,
+        edgecolors="white",
+        linewidths=0.6,
+        label="General datasets",
+    )
+
+    # 离群点
+    ax.scatter(
+        pc1[is_outlier],
+        pc2[is_outlier],
+        s=70,
+        alpha=0.92,
+        edgecolors="black",
+        linewidths=0.7,
+        label="Structurally distinctive datasets",
+    )
+
+    # 坐标轴零线
+    ax.axhline(0, linewidth=1.0, linestyle="--", alpha=0.45)
+    ax.axvline(0, linewidth=1.0, linestyle="--", alpha=0.45)
+
+    # 标注策略
     if annotate:
-        for _, row in scores_with_name.iterrows():
-            label = str(row["dataset"])
-            plt.annotate(label, (row["PC1"], row["PC2"]), fontsize=8, alpha=0.85)
+        label_mask = choose_labels_for_scatter(
+            df_plot,
+            label_mode=label_mode,
+            top_label_count=top_label_count,
+        )
 
-    plt.xlabel("PC1")
-    plt.ylabel("PC2")
-    plt.title("PCA Scatter: PC1 vs PC2")
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=dpi)
-    plt.close()
+        # 几组偏移，避免所有文字都贴在点右上角
+        offsets = [
+            (6, 6), (6, -10), (-8, 8), (-8, -12),
+            (10, 0), (-10, 0), (0, 10), (0, -14),
+        ]
+
+        label_rows = df_plot[label_mask].copy()
+        for idx, (_, row) in enumerate(label_rows.iterrows()):
+            label = beautify_dataset_name(
+                row["dataset"],
+                remove_txt_suffix=remove_txt_suffix,
+            )
+            dx, dy = offsets[idx % len(offsets)]
+
+            ax.annotate(
+                label,
+                xy=(row["PC1"], row["PC2"]),
+                xytext=(dx, dy),
+                textcoords="offset points",
+                fontsize=9.5,
+                alpha=0.92,
+                ha="left" if dx >= 0 else "right",
+                va="bottom" if dy >= 0 else "top",
+                arrowprops=dict(
+                    arrowstyle="-",
+                    linewidth=0.6,
+                    alpha=0.45,
+                    shrinkA=0,
+                    shrinkB=4,
+                ),
+            )
+
+    # 标题和标签：论文里建议中文标题放图题，这里图内标题简洁一点
+    ax.set_title("PCA Projection of Network Structure Features", pad=12)
+    ax.set_xlabel("PC1")
+    ax.set_ylabel("PC2")
+
+    # 网格和边框
+    ax.grid(True, linestyle="--", linewidth=0.6, alpha=0.28)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # 图例
+    ax.legend(frameon=False, loc="best")
+
+    # 留白
+    x_margin = (pc1.max() - pc1.min()) * 0.08
+    y_margin = (pc2.max() - pc2.min()) * 0.08
+    ax.set_xlim(pc1.min() - x_margin, pc1.max() + x_margin)
+    ax.set_ylim(pc2.min() - y_margin, pc2.max() + y_margin)
+
+    fig.tight_layout()
+
+    # 保存 PNG
+    fig.savefig(out_path, bbox_inches="tight")
+
+    # 保存 PDF
+    if save_pdf:
+        pdf_path = out_path.with_suffix(".pdf")
+        fig.savefig(pdf_path, bbox_inches="tight")
+
+    plt.close(fig)
 
 
 def main():
@@ -273,9 +460,12 @@ def main():
         scores_with_name=scores_df,
         out_path=out_dir / "pca_scatter_pc1_pc2.png",
         annotate=CONFIG["annotate_points"],
-        dpi=CONFIG["dpi"]
+        dpi=CONFIG["dpi"],
+        label_mode=CONFIG["label_mode"],
+        top_label_count=CONFIG["top_label_count"],
+        remove_txt_suffix=CONFIG["remove_txt_suffix"],
+        save_pdf=CONFIG["save_pdf"],
     )
-
     # 简要打印
     print("\nPCA 完成。")
     print("\n各主成分方差解释率：")
